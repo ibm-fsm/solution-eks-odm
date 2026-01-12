@@ -1,0 +1,264 @@
+[
+  {
+    "objectID": "src/key-takeaway.html",
+    "href": "src/key-takeaway.html",
+    "title": "Key Takeaways",
+    "section": "",
+    "text": "Document Status: Pre-Pilot\nThis section is currently a placeholder. Following the execution of the pilot phase, this section will be updated to reflect the actual outcomes, technical hurdles overcome, and validated best practices. The structure below outlines the key metrics and qualitative data points to be captured.\n\n\n\n\n\n\nSecurity Validation: [Pending] Confirm if OPA Gatekeeper successfully blocked non-compliant resources without impeding valid deployments.\nConnectivity: [Pending] Verify if the End-to-End TLS chain (User -&gt; ALB -&gt; Pod) functioned as expected with the self-signed internal certificates.\nPerformance: [Pending] Observations regarding the startup time of ODM pods when connecting to AWS RDS compared to local/on-prem databases.\n\n\n\n\n\nConfiguration Challenges: [Insert details on any specific Helm chart overrides or Ingress annotations that required significant debugging].\nOperational Friction: [Note any difficulties the team faced when managing secrets or certificates manually].\nUnexpected Behavior: [Document any AWS-specific quirks encountered, such as ALB provisioning delays or Security Group mapping issues].\n\n\n\n\n\nAutomation: [Plan to transition from manual secret creation to External Secrets Operator?].\nObservability: [Plan for integrating CloudWatch or Prometheus to monitor the decision runner performance?].\nScaling: [Recommendations for HPA (Horizontal Pod Autoscaler) based on the pilot load testing?].",
+    "crumbs": [
+      "Key Takeaways"
+    ]
+  },
+  {
+    "objectID": "src/key-takeaway.html#key-takeaways",
+    "href": "src/key-takeaway.html#key-takeaways",
+    "title": "Key Takeaways",
+    "section": "",
+    "text": "Document Status: Pre-Pilot\nThis section is currently a placeholder. Following the execution of the pilot phase, this section will be updated to reflect the actual outcomes, technical hurdles overcome, and validated best practices. The structure below outlines the key metrics and qualitative data points to be captured.\n\n\n\n\n\n\nSecurity Validation: [Pending] Confirm if OPA Gatekeeper successfully blocked non-compliant resources without impeding valid deployments.\nConnectivity: [Pending] Verify if the End-to-End TLS chain (User -&gt; ALB -&gt; Pod) functioned as expected with the self-signed internal certificates.\nPerformance: [Pending] Observations regarding the startup time of ODM pods when connecting to AWS RDS compared to local/on-prem databases.\n\n\n\n\n\nConfiguration Challenges: [Insert details on any specific Helm chart overrides or Ingress annotations that required significant debugging].\nOperational Friction: [Note any difficulties the team faced when managing secrets or certificates manually].\nUnexpected Behavior: [Document any AWS-specific quirks encountered, such as ALB provisioning delays or Security Group mapping issues].\n\n\n\n\n\nAutomation: [Plan to transition from manual secret creation to External Secrets Operator?].\nObservability: [Plan for integrating CloudWatch or Prometheus to monitor the decision runner performance?].\nScaling: [Recommendations for HPA (Horizontal Pod Autoscaler) based on the pilot load testing?].",
+    "crumbs": [
+      "Key Takeaways"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/steptwo-imp.html",
+    "href": "src/implementation_methodology/steptwo-imp.html",
+    "title": "ODM Deployment & Traffic Exposure",
+    "section": "",
+    "text": "In this final phase, we deploy the ODM workload. The configuration must bridge the gap between the Kubernetes Service (ClusterIP) and the AWS ALB, ensuring traffic remains encrypted across the boundary.\n\n\nWe customize the standard ODM Helm chart to use the secrets created in Phase 1 and configure Liberty to listen on the secure port.\n# custom-values.yaml\n\n# 1. Database Connection (References Secret from Phase 1)\ndatabase:\n  type: postgresql\n  secretCredentials: odm-db-secret\n\n# 2. TLS Configuration\n# We disable the auto-generated certs and mount our own keystore\ncustomization:\n  security:\n    secretName: odm-tls-secret\n    keystore:\n      filename: keystore.jks\n      passwordKey: keystore_password\n\n# 3. Service Configuration\n# Service is ClusterIP because ALB targets Pod IPs directly\nservice:\n  type: ClusterIP\n  port: 9443 # HTTPS Port\n\n\n\nThis is the critical component that configures End-to-End Encryption. The annotations instruct the ALB to verify TLS at the listener level and re-encrypt traffic when sending it to the backend pods.\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: odm-ingress\n  namespace: odm-pilot\n  annotations:\n    # Use the AWS Controller\n    kubernetes.io/ingress.class: alb\n    \n    # Network Configuration\n    alb.ingress.kubernetes.io/scheme: internet-facing\n    alb.ingress.kubernetes.io/target-type: ip\n    \n    # CRITICAL: End-to-End Encryption Settings\n    # 1. Listen on HTTPS (443) at the Load Balancer\n    alb.ingress.kubernetes.io/listen-ports: '[{\"HTTPS\":443}]'\n    # 2. Re-encrypt traffic using HTTPS when talking to Pods\n    alb.ingress.kubernetes.io/backend-protocol: HTTPS\n    # 3. Perform Health Checks over HTTPS so pods don't fail\n    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS\n    \n    # Certificate ARN (From AWS ACM)\n    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/xxxx\nspec:\n  rules:\n    - host: odm.mycompany.com\n      http:\n        paths:\n          - path: /decisioncenter\n            pathType: Prefix\n            backend:\n              service:\n                name: odm-decision-center\n                port:\n                  number: 9443\n\n\n\nDuring implementation, we identified that the standard IBM ODM Helm chart attempts to validate certain ingress annotations during rendering, which conflicted with the specific syntax required by the AWS Load Balancer Controller. Additionally, we needed to inject specific labels for OPA auditing that were not exposed via values.yaml.\nTo resolve this without modifying the upstream chart source, we utilized a Kustomize Post-Renderer pattern.\n1. Create the Kustomize Patch (ingress-patch.yaml): This patch forces the correct AWS annotations onto the generated Ingress object, overriding chart defaults.\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: odm-ingress\n  namespace: odm-pilot\n  annotations:\n    # Force the specific health check path required by AWS ALB\n    alb.ingress.kubernetes.io/healthcheck-path: /decisioncenter/tether\n    # Override backend protocol to ensure re-encryption\n    alb.ingress.kubernetes.io/backend-protocol: HTTPS\n2. Create the Kustomization File (kustomization.yaml):\napiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - all.yaml # Placeholder for the Helm output\npatchesStrategicMerge:\n  - ingress-patch.yaml\n\n\n\nWe deploy by “hydrating” the Helm chart into a file, applying the Kustomize patches, and then applying the final manifest to the cluster. This ensures all AWS-specific requirements are met.\n# 1. Generate the raw manifest from Helm\nhelm template odm-release ibm-charts/ibm-odm-prod \\\n  --namespace odm-pilot \\\n  --values custom-values.yaml &gt; all.yaml\n\n# 2. Apply the Kustomize patches and deploy\nkustomize build . | kubectl apply -f -\n\n\n\n\n\n\nTipVerification\n\n\n\nAfter deployment, verify that the ALB has successfully registered the targets.\nkubectl get ingress -n odm-pilot\n# Look for the ADDRESS field (e.g., k8s-odmpilot-xxxx.us-east-1.elb.amazonaws.com)\nNavigate to https://odm.mycompany.com/decisioncenter. If the page loads securely, End-to-End encryption is functioning correctly.",
+    "crumbs": [
+      "Implementation Methodology",
+      "ODM Deployment"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/steptwo-imp.html#phase-2-odm-deployment-traffic-exposure",
+    "href": "src/implementation_methodology/steptwo-imp.html#phase-2-odm-deployment-traffic-exposure",
+    "title": "ODM Deployment & Traffic Exposure",
+    "section": "",
+    "text": "In this final phase, we deploy the ODM workload. The configuration must bridge the gap between the Kubernetes Service (ClusterIP) and the AWS ALB, ensuring traffic remains encrypted across the boundary.\n\n\nWe customize the standard ODM Helm chart to use the secrets created in Phase 1 and configure Liberty to listen on the secure port.\n# custom-values.yaml\n\n# 1. Database Connection (References Secret from Phase 1)\ndatabase:\n  type: postgresql\n  secretCredentials: odm-db-secret\n\n# 2. TLS Configuration\n# We disable the auto-generated certs and mount our own keystore\ncustomization:\n  security:\n    secretName: odm-tls-secret\n    keystore:\n      filename: keystore.jks\n      passwordKey: keystore_password\n\n# 3. Service Configuration\n# Service is ClusterIP because ALB targets Pod IPs directly\nservice:\n  type: ClusterIP\n  port: 9443 # HTTPS Port\n\n\n\nThis is the critical component that configures End-to-End Encryption. The annotations instruct the ALB to verify TLS at the listener level and re-encrypt traffic when sending it to the backend pods.\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: odm-ingress\n  namespace: odm-pilot\n  annotations:\n    # Use the AWS Controller\n    kubernetes.io/ingress.class: alb\n    \n    # Network Configuration\n    alb.ingress.kubernetes.io/scheme: internet-facing\n    alb.ingress.kubernetes.io/target-type: ip\n    \n    # CRITICAL: End-to-End Encryption Settings\n    # 1. Listen on HTTPS (443) at the Load Balancer\n    alb.ingress.kubernetes.io/listen-ports: '[{\"HTTPS\":443}]'\n    # 2. Re-encrypt traffic using HTTPS when talking to Pods\n    alb.ingress.kubernetes.io/backend-protocol: HTTPS\n    # 3. Perform Health Checks over HTTPS so pods don't fail\n    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS\n    \n    # Certificate ARN (From AWS ACM)\n    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/xxxx\nspec:\n  rules:\n    - host: odm.mycompany.com\n      http:\n        paths:\n          - path: /decisioncenter\n            pathType: Prefix\n            backend:\n              service:\n                name: odm-decision-center\n                port:\n                  number: 9443\n\n\n\nDuring implementation, we identified that the standard IBM ODM Helm chart attempts to validate certain ingress annotations during rendering, which conflicted with the specific syntax required by the AWS Load Balancer Controller. Additionally, we needed to inject specific labels for OPA auditing that were not exposed via values.yaml.\nTo resolve this without modifying the upstream chart source, we utilized a Kustomize Post-Renderer pattern.\n1. Create the Kustomize Patch (ingress-patch.yaml): This patch forces the correct AWS annotations onto the generated Ingress object, overriding chart defaults.\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: odm-ingress\n  namespace: odm-pilot\n  annotations:\n    # Force the specific health check path required by AWS ALB\n    alb.ingress.kubernetes.io/healthcheck-path: /decisioncenter/tether\n    # Override backend protocol to ensure re-encryption\n    alb.ingress.kubernetes.io/backend-protocol: HTTPS\n2. Create the Kustomization File (kustomization.yaml):\napiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - all.yaml # Placeholder for the Helm output\npatchesStrategicMerge:\n  - ingress-patch.yaml\n\n\n\nWe deploy by “hydrating” the Helm chart into a file, applying the Kustomize patches, and then applying the final manifest to the cluster. This ensures all AWS-specific requirements are met.\n# 1. Generate the raw manifest from Helm\nhelm template odm-release ibm-charts/ibm-odm-prod \\\n  --namespace odm-pilot \\\n  --values custom-values.yaml &gt; all.yaml\n\n# 2. Apply the Kustomize patches and deploy\nkustomize build . | kubectl apply -f -\n\n\n\n\n\n\nTipVerification\n\n\n\nAfter deployment, verify that the ALB has successfully registered the targets.\nkubectl get ingress -n odm-pilot\n# Look for the ADDRESS field (e.g., k8s-odmpilot-xxxx.us-east-1.elb.amazonaws.com)\nNavigate to https://odm.mycompany.com/decisioncenter. If the page loads securely, End-to-End encryption is functioning correctly.",
+    "crumbs": [
+      "Implementation Methodology",
+      "ODM Deployment"
+    ]
+  },
+  {
+    "objectID": "src/landing_page/landing_page.html",
+    "href": "src/landing_page/landing_page.html",
+    "title": "Project Name",
+    "section": "",
+    "text": "Project Name\nSubtitle\n\n\nOur Documentation \n\n\n\n\n\nNext Steps\n\n\n\nL ink 1\n\n\n\nLink 2"
+  },
+  {
+    "objectID": "src/solution_overview/prepare.html",
+    "href": "src/solution_overview/prepare.html",
+    "title": "Deployment Readiness",
+    "section": "",
+    "text": "Successful deployment of IBM ODM into a strictly governed EKS environment requires specific infrastructure pillars to be established prior to installation. This section outlines the necessary tooling, external services, and cluster configurations required to satisfy the Restricted OPA Gatekeeper policies.",
+    "crumbs": [
+      "Solution Overview",
+      "Prepare"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/prepare.html#prerequisite-checklist",
+    "href": "src/solution_overview/prepare.html#prerequisite-checklist",
+    "title": "Deployment Readiness",
+    "section": "Prerequisite Checklist",
+    "text": "Prerequisite Checklist\nBefore initiating the deployment pipeline, ensure the following prerequisites are met.\n\n1. Workstation & Tooling\nThe automation bastion or engineer’s workstation requires connectivity to the target EKS cluster and the following CLI tools:\n\nHelm 3 (v3.10+ recommended) for chart management.\nKubectl configured with the correct context.\nKustomize (v4+ or built-in via kubectl -k) for manifest post-rendering.\nOpenShift CLI (oc) or Skopeo (Optional): Recommended tools for manual image mirroring if an automated enterprise pipeline is not available.\n\n\n\n2. Database Strategy\nThe standard containerized database included with the product requires privileged filesystem groups (fsGroup: 26), which is incompatible with the target environment’s OPA policies.\nPlease select ONE of the following compliant strategies for this deployment:\nOption A: AWS RDS (Production Recommended) Utilize a managed database service to completely offload persistence management and security compliance from the Kubernetes cluster.\n\nRequirement: Provision AWS RDS (PostgreSQL 12+ or Oracle).\n\nConfiguration: Ensure the database is accessible from the EKS Node Security Group.\n\nCredentials: Obtain the Endpoint URL, Port, Database Name, Username, and Password.\n\nOption B: Compliant Internal Container (Pilot/PoC Alternative) For non-production pilot environments, the client may provide their own approved PostgreSQL container image to run within the same namespace.\n\nRequirement: The container image must be security-hardened and configured to run as a non-root user (UID &gt; 1001) to pass OPA checks.\n\nConfiguration: The client is responsible for defining the deployment and storage resources for this custom database container.\n\n\n\n3. Supply Chain (Image Mirroring)\nThe target environment prohibits direct access to public registries (cp.icr.io). All container images must be staged in the client’s internal trusted registry (e.g., Artifactory).\nEnterprise Pipeline Integration If the organization utilizes a centralized image ingestion process, please configure the pipeline to pull from the IBM Entitled Registry using the source details below.\n\nSource Registry: cp.icr.io\nSource Namespace: cp/cp4a/odm\nTag: 9.5.0.1\n\nRequired Images:\n\n\n\nComponent\nImage Name\n\n\n\n\nDecision Center\nodm-decisioncenter\n\n\nDecision Runner\nodm-decisionrunner\n\n\nDecision Server Console\nodm-decisionserverconsole\n\n\nDecision Server Runtime\nodm-decisionserverruntime\n\n\nDatabase Init Utility\ndbserver\n\n\n\n\n\n\n\n\n\nTip\n\n\n\nManual Mirroring Alternative: In the absence of an automated ingestion pipeline, we recommend using the OpenShift CLI (oc) or Skopeo. These tools efficiently copy multi-architecture manifest lists between registries without requiring intermediate disk storage or Docker daemons.\n\n\n\n\n4. Cluster Configuration\nThe Kubernetes namespace must be prepared with the necessary secrets and networking definitions.\n\nNamespace: Create a dedicated namespace (e.g., odm-pilot).\nTLS Secret: A pre-provisioned Kubernetes Secret (type kubernetes.io/tls) containing the valid certificate and private key for the Ingress controller.\nStorage Class (Conditional):\n\nIf using Option B (Internal Container): A Storage Class must be identified to provision the Persistent Volume for the database.\nIf using Option A (AWS RDS): No Storage Class is required for the database layer.\n\n\n\n\n\n\n\n\nImportant\n\n\n\nOPA Policy Alignment: Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.",
+    "crumbs": [
+      "Solution Overview",
+      "Prepare"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "",
+    "text": "SL",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
+    "href": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
+    "text": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "index.html#the-why",
+    "href": "index.html#the-why",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "The Why",
+    "text": "The Why\nThe client is executing a strategic initiative to modernize their business rule management systems, transitioning critical decision logic from the mainframe to a cloud-native architecture on AWS EKS. This modernization effort requires the agility of containerization without compromising the rigorous security standards inherent to the financial services sector.\n\nBalancing Agility and Security: The primary challenge lies in reconciling the rapid deployment capabilities of IBM ODM with the client’s “Zero Exception” security posture.\nStrict Compliance alignment: Financial services environments often enforce “Restricted” Pod Security Standards that exceed standard Kubernetes defaults. Deploying complex enterprise software into these environments requires bridging the gap between standard deployment manifests and bespoke security constraints.\nOperational Standardization: The client requires a repeatable, automated deployment pipeline that satisfies automated policy gates (OPA Gatekeeper) without requiring manual intervention or policy waivers.\n\n\nProblem Details\nTechnical Hurdles & Policy Integration\nThe objective is to deploy IBM Operational Decision Manager (ODM) v9.5 into an AWS EKS cluster protected by OPA Gatekeeper constraints. While the IBM ODM Helm Chart covers the vast majority of Kubernetes security configurations, this specific environment enforces a distinct set of “Restricted” policies that require granular control over every aspect of the Pod Security Context.\nThe specific integration challenges addressed in this solution include:\n\nGranular Security Context Enforcement: The target environment mandates explicit definitions for runAsGroup and supplementalGroups at the Pod level. The solution requires a method to inject these specific, client-mandated security contexts into the standard deployment manifests during the CI/CD process.\nZero-Trust Persistence Architecture: The standard internal database configuration utilizes specific filesystem groups (fsGroup) for storage permission management. To align with the client’s non-root requirements (UID/GID &gt; 1000), the architecture must be adapted to utilize an External Database (e.g. AWS RDS) rather than containerized persistence.\nSecure Supply Chain: The environment prohibits pulling images from public or vendor registries. The deployment workflow must accommodate an air-gapped supply chain, utilizing an internal artifact repository and referencing all container images strictly by SHA256 digests.\nIngress Hardening: To meet strict traffic control policies, the solution must explicitly disable HTTP pathways and enforce TLS termination and specific ingress host matching at the manifest level.\n\n\n\nAdditional Context\nEnvironment & Constraints\n\nPlatform: AWS Elastic Kubernetes Service (EKS).\nPolicy Engine: Open Policy Agent (OPA) Gatekeeper enforcing the Kubernetes “Restricted” Pod Security Standard.\nConstraint Strictness:\n\nImmutable Policies: The platform team does not allow policy exceptions or namespace-level whitelisting.\nPre-Deployment Validation: Deployment manifests must be fully compliant before applying to the cluster; relying on post-admission mutations is not permitted.\n\nSoftware Version: IBM ODM 9.5.0.1 (Helm Chart 25.1.0).\nNetwork Posture: Strict egress filtering requires explicit allowance for connectivity to external services (RDS) and internal tooling (Artifactory).",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html",
+    "href": "src/solution_overview/environment.html",
+    "title": "Environment Architecture",
+    "section": "",
+    "text": "This section details the reference architecture for the IBM ODM v9.5 deployment. The environment is designed to operate within a “Restricted” Kubernetes security context, utilizing externalized persistence and strict traffic controls to satisfy organizational compliance standards.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#logical-topology",
+    "href": "src/solution_overview/environment.html#logical-topology",
+    "title": "Environment Architecture",
+    "section": "Logical Topology",
+    "text": "Logical Topology\nThe deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.\n\nCompute: Stateless Pods running on AWS EKS Worker Nodes.\nPersistence: External AWS RDS (PostgreSQL) for transactional data.\nArtifacts: Internal Trusted Registry (Artifactory) for container images.\nRouting: Ingress Controller handling TLS termination and routing to internal ClusterIP services.\n\n\n\n\n\n\ngraph LR\n    %% ---------------------------------------------------------\n    %% STYLING DEFINITIONS\n    %% ---------------------------------------------------------\n    classDef darkBlue fill:#002C6D,stroke:#333,stroke-width:2px,color:white;\n    classDef lightBlue fill:#6BA2C1,stroke:#333,stroke-width:2px,color:white;\n    classDef green fill:#368727,stroke:#333,stroke-width:2px,color:white;\n    classDef white fill:#ffffff,stroke:#333,stroke-width:1px,color:black;\n    %% Invisible style for spacing wrappers\n    classDef invisible fill:none,stroke:none,color:none;\n\n    %% ---------------------------------------------------------\n    %% NODE DEFINITIONS\n    %% ---------------------------------------------------------\n    subgraph CN [\"Corporate Network\"]\n        User((\"User\"))\n        Admin((\"Admin\"))\n    end\n\n    subgraph AWS_CLOUD [\"AWS Cloud Environment\"]\n        %% SPACER 1: Pushes content away from 'AWS Cloud Environment' title\n        subgraph CLOUD_SPACER [\" \"]\n            direction LR\n            \n            ALB[\"AWS ALB&lt;br/&gt;(Terminates & Re-encrypts)\"]\n\n            subgraph EKS [\"AWS EKS Cluster\"]\n                %% SPACER 2: Pushes content away from 'AWS EKS Cluster' title\n                subgraph EKS_SPACER [\" \"]\n                    direction LR\n                    \n                    subgraph NS [\"Namespace: odm-pilot\"]\n                        %% SPACER 3: Pushes content away from 'Namespace' title\n                        subgraph NS_SPACER [\" \"]\n                            \n                            subgraph ODM [\"ODM Workload (UID 1001)\"]\n                                DC[\"Decision Center\"]\n                                DR[\"Decision Runner\"]\n                                DSC[\"DS Console\"]\n                                DSR[\"DS Runtime\"]\n                            end\n                        end\n                    end\n                end\n            end\n\n            Database[(\"AWS RDS PostgreSQL\")]\n        end\n    end\n\n    subgraph EXT [\"External Infrastructure\"]\n        Registry[(\"Internal Artifactory\")]\n    end\n\n    %% ---------------------------------------------------------\n    %% CONNECTIONS\n    %% ---------------------------------------------------------\n    \n    %% Inbound HTTPS\n    User --&gt;|\"HTTPS\"| ALB\n    Admin --&gt;|\"HTTPS\"| ALB\n    \n    %% Internal Re-encrypted HTTPS\n    ALB --&gt;|\"HTTPS\"| DC\n    ALB --&gt;|\"HTTPS\"| DR\n    ALB --&gt;|\"HTTPS\"| DSC\n    ALB --&gt;|\"HTTPS\"| DSR\n\n    %% Database Connectivity\n    DC --&gt;|\"JDBC/TCP 5432\"| Database\n    DR --&gt;|\"JDBC/TCP 5432\"| Database\n    DSC --&gt;|\"JDBC/TCP 5432\"| Database\n    DSR --&gt;|\"JDBC/TCP 5432\"| Database\n\n    %% Image Pulls\n    DC -.-&gt;|\"Image Pull\"| Registry\n    DR -.-&gt;|\"Image Pull\"| Registry\n    DSC -.-&gt;|\"Image Pull\"| Registry\n    DSR -.-&gt;|\"Image Pull\"| Registry\n\n    %% ---------------------------------------------------------\n    %% APPLY STYLES\n    %% ---------------------------------------------------------\n    class User,Admin darkBlue;\n    class DC,DR,DSC,DSR lightBlue;\n    class Database,ALB green;\n    class Registry white;\n    \n    %% Apply invisible style to all spacer subgraphs\n    class CLOUD_SPACER,EKS_SPACER,NS_SPACER invisible;",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#component-matrix",
+    "href": "src/solution_overview/environment.html#component-matrix",
+    "title": "Environment Architecture",
+    "section": "Component Matrix",
+    "text": "Component Matrix\nThe solution validates the integration of the following specific software versions.\n\n\n\n\n\n\n\n\nComponent\nVersion\nRole\n\n\n\n\nPlatform\nAWS EKS (K8s 1.24+)\nContainer Orchestration Platform\n\n\nSoftware\nIBM ODM 9.5.0.1\nBusiness Rule Management System\n\n\nHelm Chart\nibm-odm-prod 25.1.0\nDeployment Manager\n\n\nDatabase\nPostgreSQL 12+\nExternal Persistence Layer (AWS RDS)\n\n\nPolicy Engine\nOPA Gatekeeper\nSecurity Governance & Admission Control\n\n\nIngress\nNGINX / AWS ALB\nTraffic Routing & TLS Termination",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#security-context-specification",
+    "href": "src/solution_overview/environment.html#security-context-specification",
+    "title": "Environment Architecture",
+    "section": "Security Context Specification",
+    "text": "Security Context Specification\nTo comply with the Restricted Pod Security Standards enforced by OPA Gatekeeper, the ODM application containers are configured with a strict security profile. This profile overrides standard defaults to ensure “Zero Privilege” execution.\n\nPod Security Settings\nThe deployment pipeline explicitly injects the following contexts into all workload resources:\n\nUser ID (UID): 1001 (Non-Root)\nGroup ID (GID): 1001 (Non-Root)\nFilesystem: Read-Only Root Filesystem (with specific volume mounts for temp directories)\nPrivilege Escalation: AllowPrivilegeEscalation: false\nCapabilities: DROP ALL\nSeccomp Profile: RuntimeDefault\n\n\n\n\n\n\n\nNote\n\n\n\nService Account Token: To minimize the attack surface, automountServiceAccountToken is disabled on application pods. This configuration is validated for core ODM functionality, though it restricts the usage of the standard IBM License Metering agent sidecar.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#network-connectivity",
+    "href": "src/solution_overview/environment.html#network-connectivity",
+    "title": "Environment Architecture",
+    "section": "Network & Connectivity",
+    "text": "Network & Connectivity\nThe environment assumes a “Deny by Default” network posture.\n\nIngress (Inbound)\n\nProtocol: HTTPS Only (HTTP traffic is strictly disabled at the Ingress level).\nTermination: TLS is terminated at the Ingress Controller using a Kubernetes Secret.\nRouting: Traffic is routed to internal ClusterIP services. No NodePorts or LoadBalancers are created directly by the application.\n\n\n\nEgress (Outbound)\nThe ODM Pods require outbound network access to the following destinations:\n\nDatabase: TCP access to the AWS RDS endpoint (typically port 5432).\nImage Registry: HTTPS access to the internal Artifactory for image pulling.\nInternal DNS: UDP/TCP access to the cluster CoreDNS service.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html",
+    "href": "src/solution_overview/troubleshooting.html",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "",
+    "text": "This section outlines common issues encountered during the deployment of Operational Decision Manager (ODM) on Amazon EKS. It focuses specifically on the challenges introduced by the strict security requirements: end-to-end TLS encryption (HTTPS everywhere) and restrictive database network policies.",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#overview",
+    "href": "src/solution_overview/troubleshooting.html#overview",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "",
+    "text": "This section outlines common issues encountered during the deployment of Operational Decision Manager (ODM) on Amazon EKS. It focuses specifically on the challenges introduced by the strict security requirements: end-to-end TLS encryption (HTTPS everywhere) and restrictive database network policies.",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#logging-strategy",
+    "href": "src/solution_overview/troubleshooting.html#logging-strategy",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "Logging Strategy",
+    "text": "Logging Strategy\nEffective troubleshooting requires inspecting logs at three distinct layers. Use the following commands to isolate errors.\n\nODM Application Logs\nThe most critical logs are generated by the WebSphere Liberty server running inside the ODM pods. Look here for JDBC connection errors, rule execution failures, or startup timeouts.\n# Stream logs for the Decision Center pod\nkubectl logs -f -l app=odm-decision-center -n odm-pilot\n\n# Check for specific \"messages.log\" errors inside a running container\nkubectl exec -it &lt;pod-name&gt; -n odm-pilot -- cat /logs/messages.log\n\n\nAWS Load Balancer Controller Logs\nIf the Ingress resource is created but the AWS ALB or Target Groups are not provisioning, inspect the controller logs in the kube-system namespace.\nkubectl logs -f -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller\n\n\nKubernetes Events\nUse events to diagnose scheduling issues, resource quota limits, or image pull failures.\nkubectl get events -n odm-pilot --sort-by='.lastTimestamp'",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#common-failure-scenarios",
+    "href": "src/solution_overview/troubleshooting.html#common-failure-scenarios",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "Common Failure Scenarios",
+    "text": "Common Failure Scenarios\nUse this matrix to quickly resolve the most frequent deployment errors.\n\n\n\n\n\n\n\n\nSymptom\nProbable Cause\nCorrective Action\n\n\n\n\nALB returns 502 Bad Gateway\nProtocol Mismatch. The ALB is sending HTTP to a Pod expecting HTTPS, or the Pod is failing its readiness probe.\n1. Verify the Ingress annotation exists: alb.ingress.kubernetes.io/backend-protocol: HTTPS2. Check if the Pod’s Readiness Probe is failing (see Section 1.3).\n\n\nPod stuck in CrashLoopBackOff\nDatabase Failure. The ODM container cannot reach RDS to initialize the schema.\n1. Check pod logs for Connection refused or SocketTimeout.2. Verify the RDS Security Group allows inbound traffic on port 5432 from the EKS Node Security Group.\n\n\nDeployment fails OPA Validation\nPolicy Violation. The deployment spec exposes a non-secure port (HTTP).\nEnsure the container spec creates the service on port 9443 (HTTPS) rather than 9060. The OPA policy mandates secure listeners.\n\n\n“Datasource not found” Error\nConfig Error. The PostgreSQL driver isn’t loaded, or the datasource XML is malformed.\nVerify that the PostgreSQL JDBC driver is mounted correctly in the container’s shared/resources volume and referenced in server.xml.\n\n\nALB Target Group is “Unhealthy”\nHealth Check Mismatch. The ALB is health-checking the wrong port or protocol.\nVerify the Ingress health check annotations. Ensure alb.ingress.kubernetes.io/healthcheck-protocol is set to HTTPS and points to a valid endpoint (e.g., /decisioncenter/health).",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#deep-dive-tls-ingress",
+    "href": "src/solution_overview/troubleshooting.html#deep-dive-tls-ingress",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "Deep Dive: TLS & Ingress",
+    "text": "Deep Dive: TLS & Ingress\nBecause of the strict OPA requirement for HTTPS traffic at the pod level, the connection between the AWS ALB and the Pods is the most fragile configuration point.\n\nInfinite Redirect Loops\nContext: ODM often attempts to redirect traffic internally, which can conflict with ALB redirects. Fix: Ensure the annotation alb.ingress.kubernetes.io/ssl-redirect: '443' is configured. Additionally, verify the ODM Liberty server configuration (server.xml) is configured to trust the proxy headers (X-Forwarded-Proto) coming from the ALB so it recognizes the original request was secure.\n\n\nUntrusted Certificates\nContext: The ALB attempts to connect to the Pod via HTTPS, but the Pod is using a self-signed certificate. Fix: By default, the AWS ALB accepts self-signed certificates from backends when the backend protocol is HTTPS. However, you must ensure the Pod is actually listening on port 9443.\n\n\n\n\n\n\nTipTesting Internal Connectivity\n\n\n\nYou can test the internal TLS handshake from within the cluster using a temporary debug pod.\n# Run a temporary curl pod\nkubectl run curl-debug --image=curlimages/curl -n odm-pilot --rm -it -- sh\n\n# Inside the pod, test the handshake (-k allows self-signed certs)\ncurl -k -v https://&lt;odm-pod-ip&gt;:9443/decisioncenter",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#database-connectivity-checklist",
+    "href": "src/solution_overview/troubleshooting.html#database-connectivity-checklist",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "Database Connectivity Checklist",
+    "text": "Database Connectivity Checklist\nIf the Decision Center or Decision Server Console fails to start, 90% of the time it is a Database connectivity or permission issue.\n\n\n\n\n\n\nImportantCritical Checks\n\n\n\n\nVPC Peering/Routing: Ensure the EKS VPC has a valid route table entry to the RDS subnet.\nSecurity Groups:\n\nSource: The Security Group attached to the EKS Worker Nodes.\nDestination: The Security Group attached to RDS (Must allow TCP/5432).\n\nSchema Privileges: If this is a fresh install, ensure the user provided in the JDBC connection string has CREATE TABLE privileges. ODM must create its own schema tables on the very first startup.",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/troubleshooting.html#opa-gatekeeper-diagnostics",
+    "href": "src/solution_overview/troubleshooting.html#opa-gatekeeper-diagnostics",
+    "title": "Troubleshooting & Diagnostics",
+    "section": "OPA Gatekeeper Diagnostics",
+    "text": "OPA Gatekeeper Diagnostics\nSince the cluster enforces strict security policies (such as requiring HTTPS listeners), OPA Gatekeeper acts as the admission controller. If your deployments fail validation, use the following commands to investigate why.\n\nIdentifying Policy Violations\nIf a kubectl apply or Helm install fails with an error message like Error from server (Forbidden): admission webhook \"validation.gatekeeper.sh\" denied the request, follow these steps to identify the blocking policy.\n1. List Active Constraints View all constraints currently enforced on the cluster to find the relevant policy (e.g., k8srequiredlabels, k8shttpsonly, etc.).\nkubectl get constraints\n2. Inspect Specific Violations If a resource is blocked or audited, the details are stored in the status field of the Constraint object. This will tell you exactly which field in your manifest failed validation.\n# Syntax: kubectl describe &lt;ConstraintKind&gt; &lt;ConstraintName&gt;\n# Example: Checking for ingress security violations\nkubectl describe k8shttpsonly ingress-must-be-secure\nLook for the Total Violations field and the Violations list in the output.\n\n\nDebugging Policy Logic\nIf you suspect a policy is misconfigured or behaving unexpectedly (e.g., blocking valid resources), you can inspect the underlying Rego logic or check the Gatekeeper controller logs.\nInspect the Constraint Template (Rego) The logic resides in the ConstraintTemplate. Inspecting this allows you to see the actual Rego code being executed.\n# List available templates\nkubectl get constrainttemplates\n\n# View the Rego logic for a specific template\nkubectl get constrainttemplate k8shttpsonly -o yaml\nCheck Gatekeeper Controller Logs The controller logs provide detailed information on webhook admission requests, including the JSON payload that was sent to OPA.\nkubectl logs -l control-plane=controller-manager -n gatekeeper-system\n\n\n\n\n\n\nNoteDry Run Mode\n\n\n\nIf you are debugging a new policy and want to observe violations without blocking deployments, you can temporarily set the enforcement action to dryrun in the Constraint YAML:\nspec:\n  enforcementAction: dryrun\nViolations will appear in the Constraint status (via kubectl describe) but will not block the creation or update of resources.\n\n\n\n\nView All Violations Cluster-Wide\nTo get a comprehensive list of every active policy violation in the cluster (audited vs. blocked), you can use this formatted command. It iterates through every Constraint and prints the resource name and specific error message for each violation.\nkubectl get constraints -o jsonpath='{range .items[*]}{\"POLICY: \"}{.metadata.name}{\"\\n\"}{range .status.violations[*]}{\"  FAIL: \"}{.message}{\"\\n    -&gt; Resource:  \"}{.kind}/{.name}{\"\\n\"}{end}{\"\\n\"}{end}'\nOutput Example:\nPOLICY: ingress-must-be-secure\n  FAIL: Ingress must be https only\n    -&gt; Resource:  Ingress/odm-ingress\n\nPOLICY: container-must-have-probes\n  FAIL: Container &lt;decision-center&gt; is missing a readinessProbe\n    -&gt; Resource:  Pod/odm-decision-center-0",
+    "crumbs": [
+      "Solution Overview",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/stepone-imp.html",
+    "href": "src/implementation_methodology/stepone-imp.html",
+    "title": "Phase 1: Foundation & Prerequisite Configuration",
+    "section": "",
+    "text": "Before deploying the ODM application logic, the infrastructure foundation must be secured. This phase covers provisioning the database, generating internal TLS assets for end-to-end encryption, and creating the necessary Kubernetes secrets.\n\n\nODM requires a robust persistence layer. We utilize AWS RDS for PostgreSQL (v12+).\n\nProvision RDS: Ensure the instance is deployed in private subnets reachable by the EKS cluster.\nConfigure Security Groups:\n\nInbound Rule: Allow TCP/5432 from the EKS Cluster Security Group.\nOutbound Rule: Allow return traffic.\n\n\n\n\n\nThe ODM data source requires specific privileges to initialize the schema on the first startup. Connect to your RDS instance via a bastion host or temporary pod and execute the following SQL commands:\n-- 1. Create the dedicated ODM user\nCREATE USER odm WITH PASSWORD 'StrongPassword123!';\n\n-- 2. Create the database\nCREATE DATABASE odm_db OWNER odm;\n\n-- 3. Grant privileges (Required for table creation)\nGRANT ALL PRIVILEGES ON DATABASE odm_db TO odm;\n\n-- 4. (Optional) If using a specific schema\n\\c odm_db\nCREATE SCHEMA odm_rules AUTHORIZATION odm;\n\n\n\nTo satisfy the OPA policy requiring HTTPS traffic at the Pod level, the WebSphere Liberty server inside the ODM container must be configured with a valid keystore.\nSince this traffic is internal (ALB \\(\\to\\) Pod) and re-encrypted, a self-signed certificate is sufficient, provided the ALB is configured to trust it (or ignore backend validation, depending on strictness).\nGenerate the Keystore (JKS):\n# 1. Generate a self-signed certificate and private key\nkeytool -genkeypair \\\n  -alias default \\\n  -keyalg RSA \\\n  -keysize 2048 \\\n  -dname \"CN=odm-service, OU=IT, O=MyCorp, L=City, S=State, C=US\" \\\n  -keystore keystore.jks \\\n  -storepass \"password123\" \\\n  -keypass \"password123\" \\\n  -validity 3650\n\n# 2. Verify the content\nkeytool -list -v -keystore keystore.jks\n\n\n\nWith the database credentials defined and the keystore generated, inject them into the cluster as Kubernetes Secrets.\nDatabase Credentials Secret: This will be injected into the server.xml datasource configuration.\nkubectl create secret generic odm-db-secret \\\n  --namespace odm-pilot \\\n  --from-literal=db-user=odm \\\n  --from-literal=db-password='StrongPassword123!' \\\n  --from-literal=db-name=odm_db \\\n  --from-literal=db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com\nTLS Keystore Secret: This will be mounted into the Liberty server’s security directory.\nkubectl create secret generic odm-tls-secret \\\n  --namespace odm-pilot \\\n  --from-file=keystore.jks=./keystore.jks \\\n  --from-literal=keystore_password='password123'\n\n\n\n\n\n\nNoteSecret Management\n\n\n\nIn a production environment, avoid creating secrets from literals in the CLI history. Use an External Secrets Operator (ESO) to sync these values from AWS Secrets Manager or HashiCorp Vault.",
+    "crumbs": [
+      "Implementation Methodology",
+      "Foundation & Prereqs"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/stepone-imp.html#phase-1-foundation-prerequisite-configuration",
+    "href": "src/implementation_methodology/stepone-imp.html#phase-1-foundation-prerequisite-configuration",
+    "title": "Phase 1: Foundation & Prerequisite Configuration",
+    "section": "",
+    "text": "Before deploying the ODM application logic, the infrastructure foundation must be secured. This phase covers provisioning the database, generating internal TLS assets for end-to-end encryption, and creating the necessary Kubernetes secrets.\n\n\nODM requires a robust persistence layer. We utilize AWS RDS for PostgreSQL (v12+).\n\nProvision RDS: Ensure the instance is deployed in private subnets reachable by the EKS cluster.\nConfigure Security Groups:\n\nInbound Rule: Allow TCP/5432 from the EKS Cluster Security Group.\nOutbound Rule: Allow return traffic.\n\n\n\n\n\nThe ODM data source requires specific privileges to initialize the schema on the first startup. Connect to your RDS instance via a bastion host or temporary pod and execute the following SQL commands:\n-- 1. Create the dedicated ODM user\nCREATE USER odm WITH PASSWORD 'StrongPassword123!';\n\n-- 2. Create the database\nCREATE DATABASE odm_db OWNER odm;\n\n-- 3. Grant privileges (Required for table creation)\nGRANT ALL PRIVILEGES ON DATABASE odm_db TO odm;\n\n-- 4. (Optional) If using a specific schema\n\\c odm_db\nCREATE SCHEMA odm_rules AUTHORIZATION odm;\n\n\n\nTo satisfy the OPA policy requiring HTTPS traffic at the Pod level, the WebSphere Liberty server inside the ODM container must be configured with a valid keystore.\nSince this traffic is internal (ALB \\(\\to\\) Pod) and re-encrypted, a self-signed certificate is sufficient, provided the ALB is configured to trust it (or ignore backend validation, depending on strictness).\nGenerate the Keystore (JKS):\n# 1. Generate a self-signed certificate and private key\nkeytool -genkeypair \\\n  -alias default \\\n  -keyalg RSA \\\n  -keysize 2048 \\\n  -dname \"CN=odm-service, OU=IT, O=MyCorp, L=City, S=State, C=US\" \\\n  -keystore keystore.jks \\\n  -storepass \"password123\" \\\n  -keypass \"password123\" \\\n  -validity 3650\n\n# 2. Verify the content\nkeytool -list -v -keystore keystore.jks\n\n\n\nWith the database credentials defined and the keystore generated, inject them into the cluster as Kubernetes Secrets.\nDatabase Credentials Secret: This will be injected into the server.xml datasource configuration.\nkubectl create secret generic odm-db-secret \\\n  --namespace odm-pilot \\\n  --from-literal=db-user=odm \\\n  --from-literal=db-password='StrongPassword123!' \\\n  --from-literal=db-name=odm_db \\\n  --from-literal=db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com\nTLS Keystore Secret: This will be mounted into the Liberty server’s security directory.\nkubectl create secret generic odm-tls-secret \\\n  --namespace odm-pilot \\\n  --from-file=keystore.jks=./keystore.jks \\\n  --from-literal=keystore_password='password123'\n\n\n\n\n\n\nNoteSecret Management\n\n\n\nIn a production environment, avoid creating secrets from literals in the CLI history. Use an External Secrets Operator (ESO) to sync these values from AWS Secrets Manager or HashiCorp Vault.",
+    "crumbs": [
+      "Implementation Methodology",
+      "Foundation & Prereqs"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/stepthree-imp.html",
+    "href": "src/implementation_methodology/stepthree-imp.html",
+    "title": "Step Three",
+    "section": "",
+    "text": "Step Three Implementation\nPhasellus at risus egestas, ultricies tortor efficitur, auctor augue. Suspendisse finibus maximus dui nec condimentum. Proin fringilla efficitur vehicula. Suspendisse sem lacus, iaculis quis erat et, facilisis sagittis est. Sed sapien justo, condimentum vitae aliquet sed, faucibus at ex. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Fusce placerat ante eget diam tincidunt, vitae tincidunt sapien malesuada. Nullam ullamcorper justo eros. Duis ultricies aliquam dui, id aliquam lorem congue vitae. Ut porttitor, tellus eu dignissim semper, turpis nunc cursus libero, sed placerat est dui non enim.\nVestibulum libero dolor, vehicula vitae risus non, consequat gravida neque. Maecenas a posuere sem. Quisque dignissim porta pretium. Nam mattis lacus commodo lobortis consequat. Vestibulum at massa a quam egestas accumsan. Fusce ac neque eu libero maximus aliquet id quis metus. In sodales neque ut turpis iaculis vehicula. Sed volutpat, tellus non laoreet aliquet, risus felis ornare dolor, interdum venenatis turpis metus in lorem. Aliquam quam ligula, porttitor non ultrices ac, lacinia ullamcorper massa. Integer molestie eleifend urna, imperdiet dignissim tellus malesuada ac. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam tristique sem ac purus interdum, vitae pharetra erat fringilla. Integer non nunc a eros porttitor rutrum. Suspendisse ut libero urna. Vestibulum vitae est at diam vestibulum aliquet. Donec porta nunc eget lobortis mollis.\nVestibulum luctus sodales odio, at luctus lacus lobortis a. Aliquam vulputate id turpis sit amet bibendum. Donec a dignissim tellus, vel vehicula erat. Pellentesque hendrerit ex magna, at dictum est pretium a. Vivamus faucibus ipsum lectus, ut elementum diam interdum scelerisque. Cras magna sapien, tincidunt quis eleifend at, tincidunt non eros. Aliquam ac augue turpis."
+  }
+]
