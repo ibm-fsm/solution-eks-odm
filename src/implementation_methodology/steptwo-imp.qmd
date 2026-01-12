@@ -1,12 +1,136 @@
 ---
-title: "Step Two"
+title: "ODM Deployment & Traffic Exposure"
 format: html
+date: last-modified
 ---
 
-### Step Two Implementation
+## Phase 2: ODM Deployment & Traffic Exposure
 
-Phasellus at risus egestas, ultricies tortor efficitur, auctor augue. Suspendisse finibus maximus dui nec condimentum. Proin fringilla efficitur vehicula. Suspendisse sem lacus, iaculis quis erat et, facilisis sagittis est. Sed sapien justo, condimentum vitae aliquet sed, faucibus at ex. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Fusce placerat ante eget diam tincidunt, vitae tincidunt sapien malesuada. Nullam ullamcorper justo eros. Duis ultricies aliquam dui, id aliquam lorem congue vitae. Ut porttitor, tellus eu dignissim semper, turpis nunc cursus libero, sed placerat est dui non enim.
+In this final phase, we deploy the ODM workload. The configuration must bridge the gap between the Kubernetes Service (ClusterIP) and the AWS ALB, ensuring traffic remains encrypted across the boundary.
 
-Vestibulum libero dolor, vehicula vitae risus non, consequat gravida neque. Maecenas a posuere sem. Quisque dignissim porta pretium. Nam mattis lacus commodo lobortis consequat. Vestibulum at massa a quam egestas accumsan. Fusce ac neque eu libero maximus aliquet id quis metus. In sodales neque ut turpis iaculis vehicula. Sed volutpat, tellus non laoreet aliquet, risus felis ornare dolor, interdum venenatis turpis metus in lorem. Aliquam quam ligula, porttitor non ultrices ac, lacinia ullamcorper massa. Integer molestie eleifend urna, imperdiet dignissim tellus malesuada ac. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam tristique sem ac purus interdum, vitae pharetra erat fringilla. Integer non nunc a eros porttitor rutrum. Suspendisse ut libero urna. Vestibulum vitae est at diam vestibulum aliquet. Donec porta nunc eget lobortis mollis.
+### 2.1 Helm Chart Configuration (`values.yaml`)
 
-Vestibulum luctus sodales odio, at luctus lacus lobortis a. Aliquam vulputate id turpis sit amet bibendum. Donec a dignissim tellus, vel vehicula erat. Pellentesque hendrerit ex magna, at dictum est pretium a. Vivamus faucibus ipsum lectus, ut elementum diam interdum scelerisque. Cras magna sapien, tincidunt quis eleifend at, tincidunt non eros. Aliquam ac augue turpis.
+We customize the standard ODM Helm chart to use the secrets created in Phase 1 and configure Liberty to listen on the secure port.
+
+```yaml
+# custom-values.yaml
+
+# 1. Database Connection (References Secret from Phase 1)
+database:
+  type: postgresql
+  secretCredentials: odm-db-secret
+
+# 2. TLS Configuration
+# We disable the auto-generated certs and mount our own keystore
+customization:
+  security:
+    secretName: odm-tls-secret
+    keystore:
+      filename: keystore.jks
+      passwordKey: keystore_password
+
+# 3. Service Configuration
+# Service is ClusterIP because ALB targets Pod IPs directly
+service:
+  type: ClusterIP
+  port: 9443 # HTTPS Port
+```
+
+### 2.2 Defining the Ingress Resource
+
+This is the critical component that configures **End-to-End Encryption**. The annotations instruct the ALB to verify TLS at the listener level *and* re-encrypt traffic when sending it to the backend pods.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odm-ingress
+  namespace: odm-pilot
+  annotations:
+    # Use the AWS Controller
+    kubernetes.io/ingress.class: alb
+    
+    # Network Configuration
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    
+    # CRITICAL: End-to-End Encryption Settings
+    # 1. Listen on HTTPS (443) at the Load Balancer
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    # 2. Re-encrypt traffic using HTTPS when talking to Pods
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    # 3. Perform Health Checks over HTTPS so pods don't fail
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+    
+    # Certificate ARN (From AWS ACM)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/xxxx
+spec:
+  rules:
+    - host: odm.mycompany.com
+      http:
+        paths:
+          - path: /decisioncenter
+            pathType: Prefix
+            backend:
+              service:
+                name: odm-decision-center
+                port:
+                  number: 9443
+```
+
+### 2.3 Kustomize Workarounds
+
+During implementation, we identified that the standard IBM ODM Helm chart attempts to validate certain ingress annotations during rendering, which conflicted with the specific syntax required by the AWS Load Balancer Controller. Additionally, we needed to inject specific labels for OPA auditing that were not exposed via `values.yaml`.
+
+To resolve this without modifying the upstream chart source, we utilized a **Kustomize Post-Renderer** pattern.
+
+**1. Create the Kustomize Patch (`ingress-patch.yaml`):**
+This patch forces the correct AWS annotations onto the generated Ingress object, overriding chart defaults.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odm-ingress
+  namespace: odm-pilot
+  annotations:
+    # Force the specific health check path required by AWS ALB
+    alb.ingress.kubernetes.io/healthcheck-path: /decisioncenter/tether
+    # Override backend protocol to ensure re-encryption
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+```
+
+**2. Create the Kustomization File (`kustomization.yaml`):**
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - all.yaml # Placeholder for the Helm output
+patchesStrategicMerge:
+  - ingress-patch.yaml
+```
+
+### 2.4 Deploying the Workload
+
+We deploy by "hydrating" the Helm chart into a file, applying the Kustomize patches, and then applying the final manifest to the cluster. This ensures all AWS-specific requirements are met.
+
+```bash
+# 1. Generate the raw manifest from Helm
+helm template odm-release ibm-charts/ibm-odm-prod \
+  --namespace odm-pilot \
+  --values custom-values.yaml > all.yaml
+
+# 2. Apply the Kustomize patches and deploy
+kustomize build . | kubectl apply -f -
+```
+
+::: {.callout-tip}
+### Verification
+After deployment, verify that the ALB has successfully registered the targets.
+```bash
+kubectl get ingress -n odm-pilot
+# Look for the ADDRESS field (e.g., k8s-odmpilot-xxxx.us-east-1.elb.amazonaws.com)
+```
+Navigate to `https://odm.mycompany.com/decisioncenter`. If the page loads securely, End-to-End encryption is functioning correctly.
+:::

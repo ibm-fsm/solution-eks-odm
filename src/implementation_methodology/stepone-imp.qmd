@@ -1,8 +1,92 @@
 ---
-title: "Step One"
+title: "Phase 1: Foundation & Prerequisite Configuration"
 format: html
+date: last-modified
 ---
 
-### Step One Implementation - The How
+## Phase 1: Foundation & Prerequisite Configuration
 
-(Details the process and techniques used to execute the technical solution)
+Before deploying the ODM application logic, the infrastructure foundation must be secured. This phase covers provisioning the database, generating internal TLS assets for end-to-end encryption, and creating the necessary Kubernetes secrets.
+
+### 1.1 Database Provisioning (AWS RDS)
+
+ODM requires a robust persistence layer. We utilize **AWS RDS for PostgreSQL** (v12+).
+
+1.  **Provision RDS:** Ensure the instance is deployed in private subnets reachable by the EKS cluster.
+2.  **Configure Security Groups:**
+    *   **Inbound Rule:** Allow TCP/5432 from the EKS Cluster Security Group.
+    *   **Outbound Rule:** Allow return traffic.
+
+### 1.2 Schema & User Setup
+
+The ODM data source requires specific privileges to initialize the schema on the first startup. Connect to your RDS instance via a bastion host or temporary pod and execute the following SQL commands:
+
+```sql
+-- 1. Create the dedicated ODM user
+CREATE USER odm WITH PASSWORD 'StrongPassword123!';
+
+-- 2. Create the database
+CREATE DATABASE odm_db OWNER odm;
+
+-- 3. Grant privileges (Required for table creation)
+GRANT ALL PRIVILEGES ON DATABASE odm_db TO odm;
+
+-- 4. (Optional) If using a specific schema
+\c odm_db
+CREATE SCHEMA odm_rules AUTHORIZATION odm;
+```
+
+### 1.3 Internal TLS Certificate Generation
+
+To satisfy the OPA policy requiring HTTPS traffic at the Pod level, the WebSphere Liberty server inside the ODM container must be configured with a valid keystore.
+
+Since this traffic is internal (ALB $\to$ Pod) and re-encrypted, a self-signed certificate is sufficient, provided the ALB is configured to trust it (or ignore backend validation, depending on strictness).
+
+**Generate the Keystore (JKS):**
+
+```bash
+# 1. Generate a self-signed certificate and private key
+keytool -genkeypair \
+  -alias default \
+  -keyalg RSA \
+  -keysize 2048 \
+  -dname "CN=odm-service, OU=IT, O=MyCorp, L=City, S=State, C=US" \
+  -keystore keystore.jks \
+  -storepass "password123" \
+  -keypass "password123" \
+  -validity 3650
+
+# 2. Verify the content
+keytool -list -v -keystore keystore.jks
+```
+
+### 1.4 Creating Kubernetes Secrets
+
+With the database credentials defined and the keystore generated, inject them into the cluster as Kubernetes Secrets.
+
+**Database Credentials Secret:**
+This will be injected into the `server.xml` datasource configuration.
+
+```bash
+kubectl create secret generic odm-db-secret \
+  --namespace odm-pilot \
+  --from-literal=db-user=odm \
+  --from-literal=db-password='StrongPassword123!' \
+  --from-literal=db-name=odm_db \
+  --from-literal=db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com
+```
+
+**TLS Keystore Secret:**
+This will be mounted into the Liberty server's security directory.
+
+```bash
+kubectl create secret generic odm-tls-secret \
+  --namespace odm-pilot \
+  --from-file=keystore.jks=./keystore.jks \
+  --from-literal=keystore_password='password123'
+```
+
+::: {.callout-note}
+### Secret Management
+In a production environment, avoid creating secrets from literals in the CLI history. Use an External Secrets Operator (ESO) to sync these values from AWS Secrets Manager or HashiCorp Vault.
+:::

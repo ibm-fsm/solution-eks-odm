@@ -3,6 +3,29 @@ title: "Key Takeaways"
 format: html
 ---
 
-### Best Practices
-(Capture the main takeaways and results of the project)
+## Key Takeaways
+
+::: {.callout-note appearance="simple"}
+**Document Status: Pre-Pilot**
+
+This section is currently a placeholder. Following the execution of the pilot phase, this section will be updated to reflect the actual outcomes, technical hurdles overcome, and validated best practices. The structure below outlines the key metrics and qualitative data points to be captured.
+:::
+
+### Pilot Results
+
+*   **Security Validation:** [Pending] Confirm if OPA Gatekeeper successfully blocked non-compliant resources without impeding valid deployments.
+*   **Connectivity:** [Pending] Verify if the End-to-End TLS chain (User -> ALB -> Pod) functioned as expected with the self-signed internal certificates.
+*   **Performance:** [Pending] Observations regarding the startup time of ODM pods when connecting to AWS RDS compared to local/on-prem databases.
+
+### Lessons Learned
+
+*   **Configuration Challenges:** [Insert details on any specific Helm chart overrides or Ingress annotations that required significant debugging].
+*   **Operational Friction:** [Note any difficulties the team faced when managing secrets or certificates manually].
+*   **Unexpected Behavior:** [Document any AWS-specific quirks encountered, such as ALB provisioning delays or Security Group mapping issues].
+
+### Recommendations for Production
+
+*   **Automation:** [Plan to transition from manual secret creation to External Secrets Operator?].
+*   **Observability:** [Plan for integrating CloudWatch or Prometheus to monitor the decision runner performance?].
+*   **Scaling:** [Recommendations for HPA (Horizontal Pod Autoscaler) based on the pilot load testing?].
 

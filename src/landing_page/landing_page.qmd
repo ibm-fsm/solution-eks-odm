@@ -4,7 +4,7 @@ format:
     theme: 
       - src/custom.scss
       - src/landing_page/landing_page.scss
-
+date: last-modified
 ---
 
 # Project Name

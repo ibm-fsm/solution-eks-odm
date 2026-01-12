@@ -1,12 +1,157 @@
 ---
-title: "Step Two"
+title: "Environment Architecture"
 format: html
+date: last-modified
 ---
 
-### Step Two Solution
+This section details the reference architecture for the IBM ODM v9.5 deployment. The environment is designed to operate within a "Restricted" Kubernetes security context, utilizing externalized persistence and strict traffic controls to satisfy organizational compliance standards.
 
-Phasellus at risus egestas, ultricies tortor efficitur, auctor augue. Suspendisse finibus maximus dui nec condimentum. Proin fringilla efficitur vehicula. Suspendisse sem lacus, iaculis quis erat et, facilisis sagittis est. Sed sapien justo, condimentum vitae aliquet sed, faucibus at ex. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Fusce placerat ante eget diam tincidunt, vitae tincidunt sapien malesuada. Nullam ullamcorper justo eros. Duis ultricies aliquam dui, id aliquam lorem congue vitae. Ut porttitor, tellus eu dignissim semper, turpis nunc cursus libero, sed placerat est dui non enim.
+## Logical Topology
 
-Vestibulum libero dolor, vehicula vitae risus non, consequat gravida neque. Maecenas a posuere sem. Quisque dignissim porta pretium. Nam mattis lacus commodo lobortis consequat. Vestibulum at massa a quam egestas accumsan. Fusce ac neque eu libero maximus aliquet id quis metus. In sodales neque ut turpis iaculis vehicula. Sed volutpat, tellus non laoreet aliquet, risus felis ornare dolor, interdum venenatis turpis metus in lorem. Aliquam quam ligula, porttitor non ultrices ac, lacinia ullamcorper massa. Integer molestie eleifend urna, imperdiet dignissim tellus malesuada ac. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam tristique sem ac purus interdum, vitae pharetra erat fringilla. Integer non nunc a eros porttitor rutrum. Suspendisse ut libero urna. Vestibulum vitae est at diam vestibulum aliquet. Donec porta nunc eget lobortis mollis.
+The deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.
 
-Vestibulum luctus sodales odio, at luctus lacus lobortis a. Aliquam vulputate id turpis sit amet bibendum. Donec a dignissim tellus, vel vehicula erat. Pellentesque hendrerit ex magna, at dictum est pretium a. Vivamus faucibus ipsum lectus, ut elementum diam interdum scelerisque. Cras magna sapien, tincidunt quis eleifend at, tincidunt non eros. Aliquam ac augue turpis.
+*   **Compute:** Stateless Pods running on AWS EKS Worker Nodes.
+*   **Persistence:** External AWS RDS (PostgreSQL) for transactional data.
+*   **Artifacts:** Internal Trusted Registry (Artifactory) for container images.
+*   **Routing:** Ingress Controller handling TLS termination and routing to internal ClusterIP services.
+
+```{mermaid}
+graph LR
+    %% ---------------------------------------------------------
+    %% STYLING DEFINITIONS
+    %% ---------------------------------------------------------
+    classDef darkBlue fill:#002C6D,stroke:#333,stroke-width:2px,color:white;
+    classDef lightBlue fill:#6BA2C1,stroke:#333,stroke-width:2px,color:white;
+    classDef green fill:#368727,stroke:#333,stroke-width:2px,color:white;
+    classDef white fill:#ffffff,stroke:#333,stroke-width:1px,color:black;
+    %% Invisible style for spacing wrappers
+    classDef invisible fill:none,stroke:none,color:none;
+
+    %% ---------------------------------------------------------
+    %% NODE DEFINITIONS
+    %% ---------------------------------------------------------
+    subgraph CN ["Corporate Network"]
+        User(("User"))
+        Admin(("Admin"))
+    end
+
+    subgraph AWS_CLOUD ["AWS Cloud Environment"]
+        %% SPACER 1: Pushes content away from 'AWS Cloud Environment' title
+        subgraph CLOUD_SPACER [" "]
+            direction LR
+            
+            ALB["AWS ALB<br/>(Terminates & Re-encrypts)"]
+
+            subgraph EKS ["AWS EKS Cluster"]
+                %% SPACER 2: Pushes content away from 'AWS EKS Cluster' title
+                subgraph EKS_SPACER [" "]
+                    direction LR
+                    
+                    subgraph NS ["Namespace: odm-pilot"]
+                        %% SPACER 3: Pushes content away from 'Namespace' title
+                        subgraph NS_SPACER [" "]
+                            
+                            subgraph ODM ["ODM Workload (UID 1001)"]
+                                DC["Decision Center"]
+                                DR["Decision Runner"]
+                                DSC["DS Console"]
+                                DSR["DS Runtime"]
+                            end
+                        end
+                    end
+                end
+            end
+
+            Database[("AWS RDS PostgreSQL")]
+        end
+    end
+
+    subgraph EXT ["External Infrastructure"]
+        Registry[("Internal Artifactory")]
+    end
+
+    %% ---------------------------------------------------------
+    %% CONNECTIONS
+    %% ---------------------------------------------------------
+    
+    %% Inbound HTTPS
+    User -->|"HTTPS"| ALB
+    Admin -->|"HTTPS"| ALB
+    
+    %% Internal Re-encrypted HTTPS
+    ALB -->|"HTTPS"| DC
+    ALB -->|"HTTPS"| DR
+    ALB -->|"HTTPS"| DSC
+    ALB -->|"HTTPS"| DSR
+
+    %% Database Connectivity
+    DC -->|"JDBC/TCP 5432"| Database
+    DR -->|"JDBC/TCP 5432"| Database
+    DSC -->|"JDBC/TCP 5432"| Database
+    DSR -->|"JDBC/TCP 5432"| Database
+
+    %% Image Pulls
+    DC -.->|"Image Pull"| Registry
+    DR -.->|"Image Pull"| Registry
+    DSC -.->|"Image Pull"| Registry
+    DSR -.->|"Image Pull"| Registry
+
+    %% ---------------------------------------------------------
+    %% APPLY STYLES
+    %% ---------------------------------------------------------
+    class User,Admin darkBlue;
+    class DC,DR,DSC,DSR lightBlue;
+    class Database,ALB green;
+    class Registry white;
+    
+    %% Apply invisible style to all spacer subgraphs
+    class CLOUD_SPACER,EKS_SPACER,NS_SPACER invisible;
+```
+
+## Component Matrix
+
+The solution validates the integration of the following specific software versions.
+
+| Component | Version | Role |
+| :--- | :--- | :--- |
+| **Platform** | AWS EKS (K8s 1.24+) | Container Orchestration Platform |
+| **Software** | IBM ODM 9.5.0.1 | Business Rule Management System |
+| **Helm Chart** | `ibm-odm-prod` 25.1.0 | Deployment Manager |
+| **Database** | PostgreSQL 12+ | External Persistence Layer (AWS RDS) |
+| **Policy Engine** | OPA Gatekeeper | Security Governance & Admission Control |
+| **Ingress** | NGINX / AWS ALB | Traffic Routing & TLS Termination |
+
+## Security Context Specification
+
+To comply with the **Restricted** Pod Security Standards enforced by OPA Gatekeeper, the ODM application containers are configured with a strict security profile. This profile overrides standard defaults to ensure "Zero Privilege" execution.
+
+### Pod Security Settings
+The deployment pipeline explicitly injects the following contexts into all workload resources:
+
+*   **User ID (UID):** `1001` (Non-Root)
+*   **Group ID (GID):** `1001` (Non-Root)
+*   **Filesystem:** Read-Only Root Filesystem (with specific volume mounts for temp directories)
+*   **Privilege Escalation:** `AllowPrivilegeEscalation: false`
+*   **Capabilities:** `DROP ALL`
+*   **Seccomp Profile:** `RuntimeDefault`
+
+:::{.callout-note}
+**Service Account Token:**
+To minimize the attack surface, `automountServiceAccountToken` is disabled on application pods. This configuration is validated for core ODM functionality, though it restricts the usage of the standard IBM License Metering agent sidecar.
+:::
+
+## Network & Connectivity
+
+The environment assumes a "Deny by Default" network posture.
+
+### Ingress (Inbound)
+*   **Protocol:** HTTPS Only (HTTP traffic is strictly disabled at the Ingress level).
+*   **Termination:** TLS is terminated at the Ingress Controller using a Kubernetes Secret.
+*   **Routing:** Traffic is routed to internal `ClusterIP` services. No NodePorts or LoadBalancers are created directly by the application.
+
+### Egress (Outbound)
+The ODM Pods require outbound network access to the following destinations:
+
+1.  **Database:** TCP access to the AWS RDS endpoint (typically port `5432`).
+2.  **Image Registry:** HTTPS access to the internal Artifactory for image pulling.
+3.  **Internal DNS:** UDP/TCP access to the cluster CoreDNS service.

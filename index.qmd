@@ -1,38 +1,47 @@
 
 ---
-title: "Project Name"
-subtitle: "Subtitle"
+title: "Secure Deployment of IBM ODM on AWS EKS"
+subtitle: "Enabling Mainframe Modernization in a \"Restricted\" OPA Gatekeeper Environment"
 format: html
+date: last-modified
 ---
 ```{=html}
-<span class="dot">SL</span> &ensp;Samuel Lee&ensp;
-```
-```{=html}
-<span class="dot">BK</span> &ensp;Bo Kulbacki&ensp;
+<span class="dot">SL</span> &ensp;Mat Davis&ensp;
 ```
 <br>
 ---
-Description: "Project Name"
+Description: "Secure Deployment of IBM ODM on AWS EKS"
 ---
 
 ## The Why
 
-(High-level description of the business challenges and client pain points)
+The client is executing a strategic initiative to modernize their business rule management systems, transitioning critical decision logic from the mainframe to a cloud-native architecture on AWS EKS. This modernization effort requires the agility of containerization without compromising the rigorous security standards inherent to the financial services sector.
+
+*   **Balancing Agility and Security:** The primary challenge lies in reconciling the rapid deployment capabilities of IBM ODM with the client’s **"Zero Exception"** security posture.
+*   **Strict Compliance alignment:** Financial services environments often enforce "Restricted" Pod Security Standards that exceed standard Kubernetes defaults. Deploying complex enterprise software into these environments requires bridging the gap between standard deployment manifests and bespoke security constraints.
+*   **Operational Standardization:** The client requires a repeatable, automated deployment pipeline that satisfies automated policy gates (OPA Gatekeeper) without requiring manual intervention or policy waivers.
 
 ### Problem Details
 
-Sed elementum convallis quam, sed tempor massa dictum sit amet. Phasellus ultricies ante id massa scelerisque interdum. Vestibulum vitae volutpat felis. Sed metus magna, malesuada vitae odio eu, volutpat aliquam odio. Mauris eget purus ex. Praesent nec gravida lorem. Nam rhoncus bibendum nulla at viverra. Curabitur at diam sem. Pellentesque semper venenatis lorem quis pharetra. Cras venenatis consectetur ante vitae mattis. Etiam in augue vel nunc euismod sodales vitae eu arcu.
+**Technical Hurdles & Policy Integration**
 
-Maecenas tempus ultricies sapien, porta suscipit est facilisis quis. Ut imperdiet massa condimentum sapien lobortis, dictum eleifend enim cursus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Aenean interdum vel velit non dictum. Suspendisse bibendum neque ut nulla condimentum, quis dictum sem consectetur. Integer quis arcu sem. Sed condimentum dolor sed libero posuere, sed tristique nulla cursus. In hac habitasse platea dictumst. Aenean ullamcorper condimentum risus, at semper tortor consequat eu.
+The objective is to deploy **IBM Operational Decision Manager (ODM) v9.5** into an AWS EKS cluster protected by **OPA Gatekeeper** constraints. While the IBM ODM Helm Chart covers the vast majority of Kubernetes security configurations, this specific environment enforces a distinct set of "Restricted" policies that require granular control over every aspect of the Pod Security Context.
 
-Pellentesque a semper nisl, a vehicula libero. Mauris aliquam porttitor nibh ut porttitor. Praesent eu sem lacinia, volutpat dolor id, interdum enim. Etiam sit amet urna rhoncus, iaculis ex hendrerit, suscipit urna. Duis id porta massa, ac ultrices nulla. Vestibulum ut rutrum lacus, ac vulputate libero. Sed metus massa, maximus ac vulputate nec, lacinia sit amet felis.
+The specific integration challenges addressed in this solution include:
 
+1.  **Granular Security Context Enforcement:** The target environment mandates explicit definitions for `runAsGroup` and `supplementalGroups` at the Pod level. The solution requires a method to inject these specific, client-mandated security contexts into the standard deployment manifests during the CI/CD process.
+2.  **Zero-Trust Persistence Architecture:** The standard internal database configuration utilizes specific filesystem groups (`fsGroup`) for storage permission management. To align with the client’s non-root requirements (UID/GID > 1000), the architecture must be adapted to utilize an **External Database** (e.g. AWS RDS) rather than containerized persistence.
+3.  **Secure Supply Chain:** The environment prohibits pulling images from public or vendor registries. The deployment workflow must accommodate an air-gapped supply chain, utilizing an internal artifact repository and referencing all container images strictly by **SHA256 digests**.
+4.  **Ingress Hardening:** To meet strict traffic control policies, the solution must explicitly disable HTTP pathways and enforce TLS termination and specific ingress host matching at the manifest level.
 
 ### Additional Context
 
-Sed elementum convallis quam, sed tempor massa dictum sit amet. Phasellus ultricies ante id massa scelerisque interdum. Vestibulum vitae volutpat felis. Sed metus magna, malesuada vitae odio eu, volutpat aliquam odio. Mauris eget purus ex. Praesent nec gravida lorem. Nam rhoncus bibendum nulla at viverra. Curabitur at diam sem. Pellentesque semper venenatis lorem quis pharetra. Cras venenatis consectetur ante vitae mattis. Etiam in augue vel nunc euismod sodales vitae eu arcu.
+**Environment & Constraints**
 
-Maecenas tempus ultricies sapien, porta suscipit est facilisis quis. Ut imperdiet massa condimentum sapien lobortis, dictum eleifend enim cursus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Aenean interdum vel velit non dictum. Suspendisse bibendum neque ut nulla condimentum, quis dictum sem consectetur. Integer quis arcu sem. Sed condimentum dolor sed libero posuere, sed tristique nulla cursus. In hac habitasse platea dictumst. Aenean ullamcorper condimentum risus, at semper tortor consequat eu.
-
-Pellentesque a semper nisl, a vehicula libero. Mauris aliquam porttitor nibh ut porttitor. Praesent eu sem lacinia, volutpat dolor id, interdum enim. Etiam sit amet urna rhoncus, iaculis ex hendrerit, suscipit urna. Duis id porta massa, ac ultrices nulla. Vestibulum ut rutrum lacus, ac vulputate libero. Sed metus massa, maximus ac vulputate nec, lacinia sit amet felis.
-
+*   **Platform:** AWS Elastic Kubernetes Service (EKS).
+*   **Policy Engine:** Open Policy Agent (OPA) Gatekeeper enforcing the **Kubernetes "Restricted" Pod Security Standard**.
+*   **Constraint Strictness:**
+    *   **Immutable Policies:** The platform team does not allow policy exceptions or namespace-level whitelisting.
+    *   **Pre-Deployment Validation:** Deployment manifests must be fully compliant *before* applying to the cluster; relying on post-admission mutations is not permitted.
+*   **Software Version:** IBM ODM 9.5.0.1 (Helm Chart 25.1.0).
+*   **Network Posture:** Strict egress filtering requires explicit allowance for connectivity to external services (RDS) and internal tooling (Artifactory).

@@ -6,7 +6,7 @@ language:
       search-text-placeholder: Search
 
 website:
-  title: Solutions Hub
+  title: ODM on EKS
   favicon: images/bee.png
   page-navigation: true
   search: 
@@ -18,7 +18,7 @@ website:
     logo: images/IBMlogo.png
     right: 
       - icon: github
-        href: https://github.com/ibm-client-engineering/solution-template-quarto
+        href: https://github.com/ibm-fsm/solution-eks-odm
         target: "_blank"
       - icon: linkedin
         menu:
@@ -46,12 +46,12 @@ website:
             href: src/solution_overview/troubleshooting.qmd
         - section: Implementation Methodology
           contents:
-          - text: Step One
+          - text: Foundation & Prereqs
             href: src/implementation_methodology/stepone-imp.qmd
-          - text: Step Two
+          - text: ODM Deployment
             href: src/implementation_methodology/steptwo-imp.qmd
-          - text: Step Three
-            href: src/implementation_methodology/stepthree-imp.qmd
+          # - text: Step 3
+          #   href: src/implementation_methodology/stepthree-imp.qmd
         - text: Key Takeaways
           href: src/key-takeaway.qmd
 

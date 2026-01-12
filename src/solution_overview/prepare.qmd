@@ -1,8 +1,75 @@
 ---
-title: "Step One"
+title: "Deployment Readiness"
 format: html
+date: last-modified
 ---
 
-### Step One Solution - The What
+Successful deployment of IBM ODM into a strictly governed EKS environment requires specific infrastructure pillars to be established prior to installation. This section outlines the necessary tooling, external services, and cluster configurations required to satisfy the **Restricted** OPA Gatekeeper policies.
 
-(Summarize the overarching technical solution. Explain the reasoning and strategic considerations behind the solution)
+## Prerequisite Checklist
+
+Before initiating the deployment pipeline, ensure the following prerequisites are met.
+
+### 1. Workstation & Tooling
+The automation bastion or engineer's workstation requires connectivity to the target EKS cluster and the following CLI tools:
+
+*   **Helm 3** (v3.10+ recommended) for chart management.
+*   **Kubectl** configured with the correct context.
+*   **Kustomize** (v4+ or built-in via `kubectl -k`) for manifest post-rendering.
+*   **OpenShift CLI (`oc`)** or **Skopeo** (Optional): Recommended tools for manual image mirroring if an automated enterprise pipeline is not available.
+
+### 2. Database Strategy
+The standard containerized database included with the product requires privileged filesystem groups (`fsGroup: 26`), which is incompatible with the target environment's OPA policies.
+
+Please select **ONE** of the following compliant strategies for this deployment:
+
+**Option A: AWS RDS (Production Recommended)**
+Utilize a managed database service to completely offload persistence management and security compliance from the Kubernetes cluster.
+
+*   **Requirement:** Provision **AWS RDS** (PostgreSQL 12+ or Oracle).  
+*   **Configuration:** Ensure the database is accessible from the EKS Node Security Group.  
+*   **Credentials:** Obtain the Endpoint URL, Port, Database Name, Username, and Password.
+
+**Option B: Compliant Internal Container (Pilot/PoC Alternative)**
+For non-production pilot environments, the client may provide their own approved PostgreSQL container image to run within the same namespace.
+
+*   **Requirement:** The container image must be security-hardened and configured to run as a **non-root user (UID > 1001)** to pass OPA checks.  
+*   **Configuration:** The client is responsible for defining the deployment and storage resources for this custom database container.
+
+### 3. Supply Chain (Image Mirroring)
+The target environment prohibits direct access to public registries (`cp.icr.io`). All container images must be staged in the client's internal trusted registry (e.g., Artifactory).
+
+**Enterprise Pipeline Integration**
+If the organization utilizes a centralized image ingestion process, please configure the pipeline to pull from the **IBM Entitled Registry** using the source details below.
+
+*   **Source Registry:** `cp.icr.io`
+*   **Source Namespace:** `cp/cp4a/odm`
+*   **Tag:** `9.5.0.1`
+
+**Required Images:**
+
+| Component | Image Name |
+| :--- | :--- |
+| Decision Center | `odm-decisioncenter` |
+| Decision Runner | `odm-decisionrunner` |
+| Decision Server Console | `odm-decisionserverconsole` |
+| Decision Server Runtime | `odm-decisionserverruntime` |
+| Database Init Utility | `dbserver` |
+
+:::{.callout-tip}
+**Manual Mirroring Alternative:**
+In the absence of an automated ingestion pipeline, we recommend using the **OpenShift CLI (`oc`)** or **Skopeo**. These tools efficiently copy multi-architecture manifest lists between registries without requiring intermediate disk storage or Docker daemons.
+:::
+
+### 4. Cluster Configuration
+The Kubernetes namespace must be prepared with the necessary secrets and networking definitions.
+
+*   **Namespace:** Create a dedicated namespace (e.g., `odm-pilot`).
+*   **TLS Secret:** A pre-provisioned Kubernetes Secret (type `kubernetes.io/tls`) containing the valid certificate and private key for the Ingress controller.
+*   **Storage Class (Conditional):**
+    *   **If using Option B (Internal Container):** A Storage Class must be identified to provision the Persistent Volume for the database.
+    *   **If using Option A (AWS RDS):** No Storage Class is required for the database layer.
+
+:::{.callout-important}
+**OPA Policy Alignment:** Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.
+:::
