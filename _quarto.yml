@@ -7,6 +7,7 @@ language:
 
 website:
   title: ODM on EKS
+  site-url: "https://ibm-fsm.github.io/solution-eks-odm"
   favicon: images/bee.png
   page-navigation: true
   search: 
