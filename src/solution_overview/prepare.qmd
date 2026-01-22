@@ -66,10 +66,17 @@ The Kubernetes namespace must be prepared with the necessary secrets and network
 
 *   **Namespace:** Create a dedicated namespace (e.g., `odm-pilot`).
 *   **TLS Secret:** A pre-provisioned Kubernetes Secret (type `kubernetes.io/tls`) containing the valid certificate and private key for the Ingress controller.
+    *   **Requirement:** The certificate Subject Alternative Name (SAN) must match the intended Ingress host (e.g., `odm.internal.corp`).
+    *   *Note:* In a production environment, this secret is typically provisioned by the organization's PKI automation (e.g., Cert-Manager or Venafi). For Lab/Pilot implementation steps, see the **Implementation Methodology** section.
 *   **Storage Class (Conditional):**
     *   **If using Option B (Internal Container):** A Storage Class must be identified to provision the Persistent Volume for the database.
     *   **If using Option A (AWS RDS):** No Storage Class is required for the database layer.
 
 :::{.callout-important}
 **OPA Policy Alignment:** Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.
+:::
+
+:::{.callout-tip}
+**Lab & Sandbox Setup:**
+If you are attempting to reproduce this environment in a local lab (e.g., k3s or Minikube) and need to manually install OPA Gatekeeper to simulate the constraint layer, please refer to the [Lab Setup Guide: OPA Gatekeeper Configuration](https://ibm-client-engineering.github.io/solution-journal-quantum-safe/src/guardium_insights/04_optional_services.html#configure-security-constraints-optional).
 :::

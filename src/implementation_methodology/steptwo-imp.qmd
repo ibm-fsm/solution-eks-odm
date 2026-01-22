@@ -8,121 +8,352 @@ date: last-modified
 
 In this final phase, we deploy the ODM workload. The configuration must bridge the gap between the Kubernetes Service (ClusterIP) and the AWS ALB, ensuring traffic remains encrypted across the boundary.
 
-### 2.1 Helm Chart Configuration (`values.yaml`)
+### 2.1 Configure Helm Repository
 
-We customize the standard ODM Helm chart to use the secrets created in Phase 1 and configure Liberty to listen on the secure port.
+Before generating the deployment manifests, add the IBM Helm repository to your local client. This allows Helm to locate the `ibm-odm-prod` chart.
+
+```bash
+# 1. Add the IBM Helm Repo
+helm repo add ibm-helm https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm
+
+# 2. Update to ensure you have the latest chart versions
+helm repo update
+
+# 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
+helm search repo ibm-odm-prod
+```
+
+:::{.callout-tip}
+### Reference Documentation
+For a complete list of available configuration parameters, default values, and architectural details, refer to the official [IBM ODM Production Helm Chart README](https://www.google.com/url?sa=E&q=https%3A%2F%2Fgithub.com%2FIBM%2Fcharts%2Fblob%2F0763d5e6882e0b4eafbb2af66b14fa1cc2fdb71c%2Frepo%2Fibm-helm%2Fibm-odm-prod.md).
+:::
+
+### 2.2 Helm Chart Configuration
+
+To satisfy the strict OPA policies and network requirements, we must construct a specific `values.yaml` file. This file overrides the default "insecure" settings of the chart.
+
+#### Constructing the Values File
+
+Select the configuration that matches your deployment phase.
+
+:::{.panel-tabset}
+
+## Option A: Production / Pilot (Target State)
+**Use Case:** Deployment into the EKS Pilot environment.  
+**Key Features:** External RDS Database, Image Digests, Strict Security Contexts.
+
+Create a file named `values-prod.yaml`:
 
 ```yaml
-# custom-values.yaml
+# values-prod.yaml
 
-# 1. Database Connection (References Secret from Phase 1)
-database:
-  type: postgresql
-  secretCredentials: odm-db-secret
+# 1. License & Auth
+license: true
+usersPassword: "<SET_ADMIN_PASSWORD>"
 
-# 2. TLS Configuration
-# We disable the auto-generated certs and mount our own keystore
+# 2. Image Config (Internal Mirror)
+image:
+  repository: artifactory.internal.corp/odm-repo
+  pullSecrets:
+    - internal-registry-secret
+  # Note: Global tag is commented out to force component-level digests
+  # tag: "9.5.0.1"
+
+# 3. Component Digests (Required for 'container-image-must-have-digest' policy)
+# You must obtain the SHA256 digest from your Artifactory for each image.
+decisionCenter:
+  tagOrDigest: "sha256:<INSERT_DC_DIGEST>"
+decisionRunner:
+  tagOrDigest: "sha256:<INSERT_DR_DIGEST>"
+decisionServerConsole:
+  tagOrDigest: "sha256:<INSERT_DSC_DIGEST>"
+decisionServerRuntime:
+  tagOrDigest: "sha256:<INSERT_DSR_DIGEST>"
+
+# 4. Architecture: External Database (Required for 'psp-fsgroup' policy)
+internalDatabase:
+  persistence:
+    enabled: false # Disable internal DB
+
+externalDatabase:
+  type: "postgresql" # or "oracle"
+  serverName: "<RDS_ENDPOINT_ADDRESS>"
+  databaseName: "odmdb"
+  port: "5432"
+  # References the secret created in Prereqs section
+  secretCredentials: "odm-db-secret"
+
+# 5. Security Contexts (Native v9.5 Features)
 customization:
-  security:
-    secretName: odm-tls-secret
-    keystore:
-      filename: keystore.jks
-      passwordKey: keystore_password
+  runAsUser: 1001
+  # NATIVE FIX: Satisfies psp-seccomp
+  seccompProfile:
+    type: RuntimeDefault
+  # NATIVE FIX: Satisfies must-have-appid
+  labels:
+    applicationid: "ODM-PILOT"
 
-# 3. Service Configuration
-# Service is ClusterIP because ALB targets Pod IPs directly
+# 6. Ingress Configuration (AWS ALB Specific)
 service:
   type: ClusterIP
-  port: 9443 # HTTPS Port
+  enableRoute: false
+  # NATIVE FIX: Satisfies "Host cannot be empty" policy
+  hostname: "odm.internal.corp"
+
+  ingress:
+    enabled: true
+    host: "odm.internal.corp"
+    
+    # NOTE: When using AWS ACM, we do not use k8s TLS secrets. 
+    # However, if OPA strictness requires a TLS block to be present in the YAML, 
+    # leave these empty or define a dummy secret. 
+    # Usually, the 'allow-http: false' annotation satisfies OPA.
+    tlsSecretRef: "" 
+    tlsHosts: []
+
+    annotations:
+      # 1. Controller Class
+      kubernetes.io/ingress.class: alb
+      
+      # 2. Network Configuration
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      # 'ip' mode routes traffic directly to Pod IPs (bypassing NodePort)
+      # This is faster and required for some sticky session configurations
+      alb.ingress.kubernetes.io/target-type: ip
+      
+      # 3. Encryption & Certificates (AWS ACM)
+      # Reference your ACM Certificate ARN here
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"
+      # Listen on HTTPS (443)
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      
+      # 4. Backend Security (Re-encryption)
+      # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)
+      alb.ingress.kubernetes.io/backend-protocol: "HTTPS"
+      # Ensure Health Checks also use HTTPS so pods don't fail readiness
+      alb.ingress.kubernetes.io/healthcheck-protocol: "HTTPS"
+      
+      # 5. OPA Compliance
+      # Explicitly disables HTTP to satisfy 'ingress-https-only' policy
+      kubernetes.io/ingress.allow-http: "false"
 ```
 
-### 2.2 Defining the Ingress Resource
+:::{.callout-important}
+### AWS ALB & OPA "TLS" Constraints
+Standard OPA policies (`ingress-https-only`) often check if the `spec.tls` list is populated in the Ingress YAML.
 
-This is the critical component that configures **End-to-End Encryption**. The annotations instruct the ALB to verify TLS at the listener level *and* re-encrypt traffic when sending it to the backend pods.
+**In AWS ALB:** You typically use the `certificate-arn` annotation instead of a Kubernetes Secret, leaving `spec.tls` empty.
+
+**If OPA blocks this configuration:** You may need to create a "dummy" self-signed secret and reference it in `tlsSecretRef` just to satisfy the OPA regex check, even though the ALB ignores it in favor of the ARN.
+:::
+
+## Option B: Lab Validation (Internal DB)
+**Use Case:** Sandbox testing where an External RDS is not available.  
+**Key Features:** Internal PostgreSQL (Accepts known OPA violation for DB only), Image Digests, Self-Signed Ingress.
+
+Create a file named `values-lab.yaml`:
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+# values-lab.yaml
+
+# 1. License & Auth
+license: true
+usersPassword: "odmAdminPassword123!"
+
+# 2. Image Config (Lab Artifactory)
+image:
+  repository: artifactory.gym.lan:8443/docker-local
+  pullSecrets:
+    - internal-registry-secret
+  # tag: "9.5.0.1"
+
+# 3. Component Digests (From Lab Artifactory)
+decisionCenter:
+  tagOrDigest: "sha256:6a0eb1f874ba52918bcd8e2c3acde2d3e428685cad7e5996e0c1227e88d3de0b"
+decisionRunner:
+  tagOrDigest: "sha256:6f0643013e18d848199a73f38c5f6f854c1226ae7702c8294b835b74aa561782"
+decisionServerConsole:
+  tagOrDigest: "sha256:f4c778a388535330ce5d5612d6325d5522cedb70f0cb7895fa7f015a38e5bb9c"
+decisionServerRuntime:
+  tagOrDigest: "sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a"
+
+# 4. Architecture: Internal Database
+# Note: This WILL fail 'psp-fsgroup' checks. Acceptable for Lab only.
+internalDatabase:
+  # Digest for dbserver image
+  tagOrDigest: "sha256:9106481ba539808ea9fed4b7d3197e91732748bc2170e862b729af8cc874f5db"
+  persistence:
+    enabled: true
+    useDynamicProvisioning: true
+    storageClassName: "local-path"
+  runAsUser: 26
+
+# 5. Security Contexts
+customization:
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+  labels:
+    applicationid: "ODM-LAB"
+
+# 6. Ingress Configuration
+service:
+  type: ClusterIP
+  enableRoute: false
+  hostname: "odm.aiops-haproxy.gym.lan"
+
+  ingress:
+    enabled: true
+    host: "odm.aiops-haproxy.gym.lan"
+    tlsSecretRef: "odm-tls-secret"
+    tlsHosts:
+      - "odm.aiops-haproxy.gym.lan"
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      kubernetes.io/ingress.allow-http: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+```
+:::
+
+### 2.3. Kustomize Workarounds
+
+While ODM v9.5 resolves many security configurations natively, two critical gaps remain that cannot be fixed via `values.yaml` alone:  
+1.  **Group ID Enforcement:** The Helm chart ignores `runAsGroup` and `supplementalGroups` for Deployments.  
+2.  **Test Job Compliance:** The `odm-test-connection` Job created by the chart lacks resource limits, security contexts, and image digest support.
+
+We utilize Kustomize to patch these resources post-rendering.
+
+#### Create Patch Files
+
+Create a directory (e.g., `odm-overlay`) and populate it with the following three files.
+
+##### File 1: `security-patch.yaml`
+**Target:** Application Deployments (Decision Center, Runner, Console, Runtime).  
+**Purpose:** Injects the mandatory Group IDs required by the "Restricted" OPA policy.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: odm-ingress
-  namespace: odm-pilot
-  annotations:
-    # Use the AWS Controller
-    kubernetes.io/ingress.class: alb
-    
-    # Network Configuration
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    
-    # CRITICAL: End-to-End Encryption Settings
-    # 1. Listen on HTTPS (443) at the Load Balancer
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    # 2. Re-encrypt traffic using HTTPS when talking to Pods
-    alb.ingress.kubernetes.io/backend-protocol: HTTPS
-    # 3. Perform Health Checks over HTTPS so pods don't fail
-    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
-    
-    # Certificate ARN (From AWS ACM)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/xxxx
+  name: .*
 spec:
-  rules:
-    - host: odm.mycompany.com
-      http:
-        paths:
-          - path: /decisioncenter
-            pathType: Prefix
-            backend:
-              service:
-                name: odm-decision-center
-                port:
-                  number: 9443
+  template:
+    spec:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        supplementalGroups: [1001]
 ```
 
-### 2.3 Kustomize Workarounds
-
-During implementation, we identified that the standard IBM ODM Helm chart attempts to validate certain ingress annotations during rendering, which conflicted with the specific syntax required by the AWS Load Balancer Controller. Additionally, we needed to inject specific labels for OPA auditing that were not exposed via `values.yaml`.
-
-To resolve this without modifying the upstream chart source, we utilized a **Kustomize Post-Renderer** pattern.
-
-**1. Create the Kustomize Patch (`ingress-patch.yaml`):**
-This patch forces the correct AWS annotations onto the generated Ingress object, overriding chart defaults.
+##### File 2: `job-security-patch.yaml`
+**Target:** The Database Connection Test Job.  
+**Purpose:** This job is "unconfigurable" in the standard chart. We must patch it to enforce Image Digests, Resource Limits, and strict Security Contexts.
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: odm-ingress
-  namespace: odm-pilot
-  annotations:
-    # Force the specific health check path required by AWS ALB
-    alb.ingress.kubernetes.io/healthcheck-path: /decisioncenter/tether
-    # Override backend protocol to ensure re-encryption
-    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+  name: .*
+spec:
+  template:
+    spec:
+      # Pod Level Security
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        supplementalGroups: [1001]
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+      - name: odm-lab-odm-test
+        # CRITICAL: The Helm chart does not support digests for this specific job.
+        # You must hardcode the mirrored Runtime image and SHA256 digest here.
+        image: artifactory.internal.corp/odm-repo/odm-decisionserverruntime@sha256:<INSERT_RUNTIME_SHA256_HERE>
+
+        # Fix "container-must-have-limits-and-requests"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+        # Fix "privilege-escalation", "capabilities", "readonlyrootfilesystem"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
 ```
 
-**2. Create the Kustomization File (`kustomization.yaml`):**
+#### Create Kustomization Manifest
+
+Create the `kustomization.yaml` file to link the patches to the generated resources.
+
+**Important:** We use explicit name targeting to ensure we do not accidentally patch the Database Deployment (if running locally) or other infrastructure components.
+
+*Note: The names below assume your Helm Release Name is `odm-lab`. If you use `odm-pilot`, update the names accordingly (e.g., `odm-pilot-odm-decisioncenter`).*
 
 ```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
 resources:
-  - all.yaml # Placeholder for the Helm output
-patchesStrategicMerge:
-  - ingress-patch.yaml
+  - odm-raw.yaml
+
+patches:
+  # --- PATCH THE DEPLOYMENTS (Apps) ---
+  - path: security-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: odm-lab-odm-decisioncenter
+
+  - path: security-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: odm-lab-odm-decisionrunner
+
+  - path: security-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: odm-lab-odm-decisionserverconsole
+
+  - path: security-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: odm-lab-odm-decisionserverruntime
+
+  # --- PATCH THE JOB (Test Connection) ---
+  - path: job-security-patch.yaml
+    target:
+      group: batch
+      version: v1
+      kind: Job
+      name: odm-lab-odm-test
 ```
 
 ### 2.4 Deploying the Workload
 
-We deploy by "hydrating" the Helm chart into a file, applying the Kustomize patches, and then applying the final manifest to the cluster. This ensures all AWS-specific requirements are met.
+Run the build pipeline to generate the patched manifests and apply them to the cluster.
 
 ```bash
-# 1. Generate the raw manifest from Helm
-helm template odm-release ibm-charts/ibm-odm-prod \
-  --namespace odm-pilot \
-  --values custom-values.yaml > all.yaml
+# 1. Render Helm Template
+helm template odm-lab ibm-helm/ibm-odm-prod \
+  --version 25.1.0 \
+  --kube-version 1.28.0 \
+  -f values-prod.yaml > odm-raw.yaml
 
-# 2. Apply the Kustomize patches and deploy
-kustomize build . | kubectl apply -f -
+# 2. Apply Patches & Deploy
+kubectl apply -k .
 ```
 
 ::: {.callout-tip}

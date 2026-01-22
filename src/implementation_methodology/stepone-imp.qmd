@@ -38,26 +38,31 @@ CREATE SCHEMA odm_rules AUTHORIZATION odm;
 
 ### 1.3 Internal TLS Certificate Generation
 
-To satisfy the OPA policy requiring HTTPS traffic at the Pod level, the WebSphere Liberty server inside the ODM container must be configured with a valid keystore.
+To satisfy the OPA policy requiring HTTPS traffic at the cluster boundary, the Kubernetes Ingress resource must be configured with a valid TLS secret. This enables the Ingress Controller to terminate HTTPS traffic at the cluster boundary.
 
-Since this traffic is internal (ALB $\to$ Pod) and re-encrypted, a self-signed certificate is sufficient, provided the ALB is configured to trust it (or ignore backend validation, depending on strictness).
+For this document, we will generate a self-signed certificate using OpenSSL.
 
-**Generate the Keystore (JKS):**
+**Generate the Certificate and Key (PEM):**
+
+:::{.callout-note}
+### Determining the Certificate Subject (CN)
+
+The Common Name (`/CN`) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser.
+
+*   **In the Lab:** We use the pattern `odm.<proxy>` (e.g., `/CN=odm.haproxy.gym.lan/O=Lab/C=US`). This ensures the browser accepts the certificate when traffic is routed through your lab's load balancer.
+*   **In Production (AWS ALB):** Use the **Route53 CNAME** or Alias record created for the application (e.g., `/CN=odm.internal.corp`).
+    *   *Important:* Do **not** use the raw AWS ALB hostname (e.g., `*.elb.amazonaws.com`) as the CN. Browser security policies will reject the certificate if it identifies the load balancer hardware rather than the application service name.
+:::
 
 ```bash
 # 1. Generate a self-signed certificate and private key
-keytool -genkeypair \
-  -alias default \
-  -keyalg RSA \
-  -keysize 2048 \
-  -dname "CN=odm-service, OU=IT, O=MyCorp, L=City, S=State, C=US" \
-  -keystore keystore.jks \
-  -storepass "password123" \
-  -keypass "password123" \
-  -validity 3650
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout odm-lab.key \
+  -out odm-lab.crt \
+  -subj "/CN=odm.internal.corp/O=MyCorp/C=US"
 
 # 2. Verify the content
-keytool -list -v -keystore keystore.jks
+ls -l odm-lab.key odm-lab.crt
 ```
 
 ### 1.4 Creating Kubernetes Secrets
@@ -77,16 +82,64 @@ kubectl create secret generic odm-db-secret \
 ```
 
 **TLS Keystore Secret:**
-This will be mounted into the Liberty server's security directory.
+This will be referenced by the Ingress resource (`tlsSecretRef`) to enable HTTPS.
 
 ```bash
-kubectl create secret generic odm-tls-secret \
+# Create a standard Kubernetes TLS secret type
+kubectl create secret tls odm-tls-secret \
   --namespace odm-pilot \
-  --from-file=keystore.jks=./keystore.jks \
-  --from-literal=keystore_password='password123'
+  --key odm-lab.key \
+  --cert odm-lab.crt
 ```
 
 ::: {.callout-note}
 ### Secret Management
 In a production environment, avoid creating secrets from literals in the CLI history. Use an External Secrets Operator (ESO) to sync these values from AWS Secrets Manager or HashiCorp Vault.
+:::
+
+### 1.5 Create Image Pull Secret
+
+Kubernetes requires authentication credentials to pull container images. Depending on your environment constraints (Lab vs. Restricted Production), the source registry and credentials will differ.
+
+:::{.panel-tabset}
+
+## Option A: Private Registry (Production/Restricted)
+**Target Environment:** Customer Pilot / Air-Gapped / OPA-Enforced
+
+In strict environments where public internet access is blocked or OPA forbids public registries, you must pull from the internal location where you mirrored the images (e.g., Artifactory).
+
+**Action:** Create a secret using your internal registry credentials.
+
+```bash
+# Replace with your internal registry details
+kubectl create secret docker-registry internal-registry-secret \
+  --docker-server=artifactory.internal.corp:8443 \
+  --docker-username=<SERVICE_ACCOUNT_USER> \
+  --docker-password=<SERVICE_ACCOUNT_TOKEN> \
+  --docker-email=admin@internal.corp \
+  -n odm-pilot
+```
+
+## Option B: IBM Registry (Standard Lab)
+**Target Environment:** Sandbox / POC with Internet Access
+
+If you are working in a lab with direct internet access and no strict OPA registry constraints, you can pull directly from IBM.
+
+**Action:** Create a secret using your IBM Entitlement Key.
+
+```bash
+# 1. Get your key from myibm.ibm.com/products-services/containerlibrary
+# 2. Create the secret
+kubectl create secret docker-registry ibm-entitlement-key \
+  --docker-server=cp.icr.io \
+  --docker-username=cp \
+  --docker-password=<YOUR_IBM_ENTITLEMENT_KEY> \
+  --docker-email=user@example.com \
+  -n odm-pilot
+```
+:::
+
+:::{.callout-important}
+### Secret Name Consistency
+Whichever option you choose, ensure the secret name used in the `kubectl create` command exactly matches the value in your `values.yaml` file under `image.pullSecrets`.
 :::
