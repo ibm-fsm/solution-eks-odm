@@ -2,11 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.26">
+<meta name="generator" content="quarto-1.8.27">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-12">
+<meta name="dcterms.date" content="2026-01-22">
 
 <title>Phase 1: Foundation &amp; Prerequisite Configuration – ODM on EKS</title>
 <style>
@@ -75,7 +75,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../../site_libs/bootstrap/bootstrap-7739a7c88020ee5985c041f1390fa554.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
@@ -107,35 +107,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
 
 </head>
 
@@ -285,6 +256,7 @@ window.Quarto = {
   <li><a href="#schema-user-setup" id="toc-schema-user-setup" class="nav-link" data-scroll-target="#schema-user-setup">1.2 Schema &amp; User Setup</a></li>
   <li><a href="#internal-tls-certificate-generation" id="toc-internal-tls-certificate-generation" class="nav-link" data-scroll-target="#internal-tls-certificate-generation">1.3 Internal TLS Certificate Generation</a></li>
   <li><a href="#creating-kubernetes-secrets" id="toc-creating-kubernetes-secrets" class="nav-link" data-scroll-target="#creating-kubernetes-secrets">1.4 Creating Kubernetes Secrets</a></li>
+  <li><a href="#create-image-pull-secret" id="toc-create-image-pull-secret" class="nav-link" data-scroll-target="#create-image-pull-secret">1.5 Create Image Pull Secret</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -305,7 +277,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 12, 2026</p>
+      <p class="date">January 22, 2026</p>
     </div>
   </div>
   
@@ -350,22 +322,37 @@ window.Quarto = {
 </section>
 <section id="internal-tls-certificate-generation" class="level3">
 <h3 class="anchored" data-anchor-id="internal-tls-certificate-generation">1.3 Internal TLS Certificate Generation</h3>
-<p>To satisfy the OPA policy requiring HTTPS traffic at the Pod level, the WebSphere Liberty server inside the ODM container must be configured with a valid keystore.</p>
-<p>Since this traffic is internal (ALB <span class="math inline">\(\to\)</span> Pod) and re-encrypted, a self-signed certificate is sufficient, provided the ALB is configured to trust it (or ignore backend validation, depending on strictness).</p>
-<p><strong>Generate the Keystore (JKS):</strong></p>
+<p>To satisfy the OPA policy requiring HTTPS traffic at the cluster boundary, the Kubernetes Ingress resource must be configured with a valid TLS secret. This enables the Ingress Controller to terminate HTTPS traffic at the cluster boundary.</p>
+<p>For this document, we will generate a self-signed certificate using OpenSSL.</p>
+<p><strong>Generate the Certificate and Key (PEM):</strong></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Determining the Certificate Subject (CN)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The Common Name (<code>/CN</code>) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser.</p>
+<ul>
+<li><strong>In the Lab:</strong> We use the pattern <code>odm.&lt;proxy&gt;</code> (e.g., <code>/CN=odm.haproxy.gym.lan/O=Lab/C=US</code>). This ensures the browser accepts the certificate when traffic is routed through your lab’s load balancer.</li>
+<li><strong>In Production (AWS ALB):</strong> Use the <strong>Route53 CNAME</strong> or Alias record created for the application (e.g., <code>/CN=odm.internal.corp</code>).
+<ul>
+<li><em>Important:</em> Do <strong>not</strong> use the raw AWS ALB hostname (e.g., <code>*.elb.amazonaws.com</code>) as the CN. Browser security policies will reject the certificate if it identifies the load balancer hardware rather than the application service name.</li>
+</ul></li>
+</ul>
+</div>
+</div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generate a self-signed certificate and private key</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">keytool</span> <span class="at">-genkeypair</span> <span class="dt">\</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-alias</span> default <span class="dt">\</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keyalg</span> RSA <span class="dt">\</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keysize</span> 2048 <span class="dt">\</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">-dname</span> <span class="st">"CN=odm-service, OU=IT, O=MyCorp, L=City, S=State, C=US"</span> <span class="dt">\</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keystore</span> keystore.jks <span class="dt">\</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">-storepass</span> <span class="st">"password123"</span> <span class="dt">\</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keypass</span> <span class="st">"password123"</span> <span class="dt">\</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">-validity</span> 3650</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Verify the content</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="ex">keytool</span> <span class="at">-list</span> <span class="at">-v</span> <span class="at">-keystore</span> keystore.jks</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> req <span class="at">-x509</span> <span class="at">-nodes</span> <span class="at">-days</span> 365 <span class="at">-newkey</span> rsa:2048 <span class="dt">\</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keyout</span> odm-lab.key <span class="dt">\</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-out</span> odm-lab.crt <span class="dt">\</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-subj</span> <span class="st">"/CN=odm.internal.corp/O=MyCorp/C=US"</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Verify the content</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> <span class="at">-l</span> odm-lab.key odm-lab.crt</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="creating-kubernetes-secrets" class="level3">
 <h3 class="anchored" data-anchor-id="creating-kubernetes-secrets">1.4 Creating Kubernetes Secrets</h3>
@@ -377,11 +364,12 @@ window.Quarto = {
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-literal</span><span class="op">=</span>db-password=<span class="st">'StrongPassword123!'</span> <span class="dt">\</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-literal</span><span class="op">=</span>db-name=odm_db <span class="dt">\</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-literal</span><span class="op">=</span>db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>TLS Keystore Secret:</strong> This will be mounted into the Liberty server’s security directory.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret generic odm-tls-secret <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--namespace</span> odm-pilot <span class="dt">\</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-file</span><span class="op">=</span>keystore.jks=./keystore.jks <span class="dt">\</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-literal</span><span class="op">=</span>keystore_password=<span class="st">'password123'</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>TLS Keystore Secret:</strong> This will be referenced by the Ingress resource (<code>tlsSecretRef</code>) to enable HTTPS.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a standard Kubernetes TLS secret type</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret tls odm-tls-secret <span class="dt">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--namespace</span> odm-pilot <span class="dt">\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--key</span> odm-lab.key <span class="dt">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--cert</span> odm-lab.crt</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -393,6 +381,53 @@ window.Quarto = {
 </div>
 <div class="callout-body-container callout-body">
 <p>In a production environment, avoid creating secrets from literals in the CLI history. Use an External Secrets Operator (ESO) to sync these values from AWS Secrets Manager or HashiCorp Vault.</p>
+</div>
+</div>
+</section>
+<section id="create-image-pull-secret" class="level3">
+<h3 class="anchored" data-anchor-id="create-image-pull-secret">1.5 Create Image Pull Secret</h3>
+<p>Kubernetes requires authentication credentials to pull container images. Depending on your environment constraints (Lab vs.&nbsp;Restricted Production), the source registry and credentials will differ.</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Option A: Private Registry (Production/Restricted)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Option B: IBM Registry (Standard Lab)</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<p><strong>Target Environment:</strong> Customer Pilot / Air-Gapped / OPA-Enforced</p>
+<p>In strict environments where public internet access is blocked or OPA forbids public registries, you must pull from the internal location where you mirrored the images (e.g., Artifactory).</p>
+<p><strong>Action:</strong> Create a secret using your internal registry credentials.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace with your internal registry details</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret docker-registry internal-registry-secret <span class="dt">\</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-server</span><span class="op">=</span>artifactory.internal.corp:8443 <span class="dt">\</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-username</span><span class="op">=&lt;</span>SERVICE_ACCOUNT_USER<span class="op">&gt;</span> <span class="dt">\</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-password</span><span class="op">=&lt;</span>SERVICE_ACCOUNT_TOKEN<span class="op">&gt;</span> <span class="dt">\</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-email</span><span class="op">=</span>admin@internal.corp <span class="dt">\</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">-n</span> odm-pilot</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<p><strong>Target Environment:</strong> Sandbox / POC with Internet Access</p>
+<p>If you are working in a lab with direct internet access and no strict OPA registry constraints, you can pull directly from IBM.</p>
+<p><strong>Action:</strong> Create a secret using your IBM Entitlement Key.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Get your key from myibm.ibm.com/products-services/containerlibrary</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Create the secret</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret docker-registry ibm-entitlement-key <span class="dt">\</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-server</span><span class="op">=</span>cp.icr.io <span class="dt">\</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-username</span><span class="op">=</span>cp <span class="dt">\</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-password</span><span class="op">=&lt;</span>YOUR_IBM_ENTITLEMENT_KEY<span class="op">&gt;</span> <span class="dt">\</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-email</span><span class="op">=</span>user@example.com <span class="dt">\</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">-n</span> odm-pilot</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Secret Name Consistency
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Whichever option you choose, ensure the secret name used in the <code>kubectl create</code> command exactly matches the value in your <code>values.yaml</code> file under <code>image.pullSecrets</code>.</p>
 </div>
 </div>
 

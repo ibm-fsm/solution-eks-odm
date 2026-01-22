@@ -2,11 +2,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.26">
+<meta name="generator" content="quarto-1.8.27">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-12">
+<meta name="dcterms.date" content="2026-01-22">
 
 <title>Deployment Readiness – ODM on EKS</title>
 <style>
@@ -40,7 +40,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../../site_libs/bootstrap/bootstrap-7739a7c88020ee5985c041f1390fa554.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
@@ -241,7 +241,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 12, 2026</p>
+      <p class="date">January 22, 2026</p>
     </div>
   </div>
   
@@ -345,7 +345,11 @@ Tip
 <p>The Kubernetes namespace must be prepared with the necessary secrets and networking definitions.</p>
 <ul>
 <li><strong>Namespace:</strong> Create a dedicated namespace (e.g., <code>odm-pilot</code>).</li>
-<li><strong>TLS Secret:</strong> A pre-provisioned Kubernetes Secret (type <code>kubernetes.io/tls</code>) containing the valid certificate and private key for the Ingress controller.</li>
+<li><strong>TLS Secret:</strong> A pre-provisioned Kubernetes Secret (type <code>kubernetes.io/tls</code>) containing the valid certificate and private key for the Ingress controller.
+<ul>
+<li><strong>Requirement:</strong> The certificate Subject Alternative Name (SAN) must match the intended Ingress host (e.g., <code>odm.internal.corp</code>).</li>
+<li><em>Note:</em> In a production environment, this secret is typically provisioned by the organization’s PKI automation (e.g., Cert-Manager or Venafi). For Lab/Pilot implementation steps, see the <strong>Implementation Methodology</strong> section.</li>
+</ul></li>
 <li><strong>Storage Class (Conditional):</strong>
 <ul>
 <li><strong>If using Option B (Internal Container):</strong> A Storage Class must be identified to provision the Persistent Volume for the database.</li>
@@ -363,6 +367,19 @@ Important
 </div>
 <div class="callout-body-container callout-body">
 <p><strong>OPA Policy Alignment:</strong> Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tip
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Lab &amp; Sandbox Setup:</strong> If you are attempting to reproduce this environment in a local lab (e.g., k3s or Minikube) and need to manually install OPA Gatekeeper to simulate the constraint layer, please refer to the <a href="https://ibm-client-engineering.github.io/solution-journal-quantum-safe/src/guardium_insights/04_optional_services.html#configure-security-constraints-optional">Lab Setup Guide: OPA Gatekeeper Configuration</a>.</p>
 </div>
 </div>
 
