@@ -9,13 +9,177 @@ date: last-modified
 Before deploying the ODM application logic, the infrastructure foundation must be secured. This phase covers provisioning the database, generating internal TLS assets for end-to-end encryption, and creating the necessary Kubernetes secrets.
 
 ### 1.1 Database Provisioning (AWS RDS)
+:::{.panel-tabset}
 
+## Option A: AWS RDS
 ODM requires a robust persistence layer. We utilize **AWS RDS for PostgreSQL** (v12+).
 
 1.  **Provision RDS:** Ensure the instance is deployed in private subnets reachable by the EKS cluster.
 2.  **Configure Security Groups:**
     *   **Inbound Rule:** Allow TCP/5432 from the EKS Cluster Security Group.
     *   **Outbound Rule:** Allow return traffic.
+
+
+## Option B: PostgreSQL
+Create PostgreSQL in a separate name space to similate a similar setup to a prod environment with AWS RDS.
+
+1.  **Create New Namespace (PostgreSQL)**
+    From a node inside your cluster on Bastion (eg. [clouduser@my-k3s-server-0 ~])
+    
+    ```bash
+    kubectl create namespace postgres
+    ```
+    **Note: **You can check namespaces with ```bash kubectl get ns```
+2.  **Create PostgreSQL Secret**
+
+    ```bash
+    kubectl -n postgres create secret generic postgres-secret \
+      --from-literal=POSTGRES_DB=postgresdb \
+      --from-literal=POSTGRES_USER=postgresuser \
+      --from-literal=POSTGRES_PASSWORD=postgrespassword
+    ```
+3.  **Create persistent value storage**
+    
+    ```bash
+    mkdir -p ~/k3s/postgres
+    cd ~/k3s/postgres
+    vi postgres-pvc.yaml
+    ```
+
+    Paste into postgres-pvc.yaml
+    ```bash
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: postgres-pvc
+      namespace: postgres
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+    ```
+    Save the file and apply it.
+
+    ```bash 
+    kubectl apply -f postgres-pvc.yaml
+    ```
+    Should output: ```bash persistentvolumeclaim/postgres-pvc created```
+4.  **Create the deployment yaml**
+
+    ```bash 
+    vi postgres-deployment.yaml
+    ```
+
+    Paste the following into the yaml
+    ```bash
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: postgres
+      namespace: postgres
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: postgres
+      template:
+        metadata:
+          labels:
+            app: postgres
+        spec:
+          containers:
+          - name: postgres
+            image: postgres:16
+            ports:
+            - containerPort: 5432
+            envFrom:
+            - secretRef:
+                name: postgres-secret
+            volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          volumes:
+          - name: postgres-storage
+            persistentVolumeClaim:
+              claimName: postgres-pvc
+    ```
+
+    Save the file and apply it.
+    ```bash
+    kubectl apply -f postgres-deployment.yaml
+    ```
+
+    Expected output: ```bash deployment.apps/postgres created```
+
+
+5.  **Check that the Postgres pod is running**
+
+    ```bash
+    kubectl -n postgres get pods -w
+    ```
+
+    Expect one of the following:
+
+    ```bash
+    postgres-xxxxx   Pending
+    postgres-xxxxx   ContainerCreating
+    postgres-xxxxx   Running
+    ```
+
+    Eventually you should see 'Running'
+
+6. **Check that the volume is mounted**
+
+    ```bash
+    kubectl -n postgres get pvc
+    ```
+    **Note:** if it gets stuck, run ```bash kubectl -n postgres describe pod postgres-xxxxx```
+7. **Create the service file (once pod is running)**
+    
+    ```bash
+    vi postgres-service.yaml
+    ```
+
+    Paste
+
+    ```bash
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: postgres
+      namespace: postgres
+    spec:
+      type: ClusterIP
+      selector:
+        app: postgres
+      ports:
+      - port: 5432
+        targetPort: 5432
+    ```
+
+    Apply the yaml
+
+    ```bash
+    kubectl apply -f postgres-service.yaml
+    ```
+
+    Expected output ```bash service/postgres created```
+
+8. **Verify that the volume is running**
+
+  ```bash
+  kubectl -n postgres get svc
+  ```
+
+  You should now have postgres-pvc.yaml, postgres-deployment.yaml, and postgres-service.yaml under the /home/clouduser/k3s/postgres directory
+
+
+:::
+
+
+
 
 ### 1.2 Schema & User Setup
 

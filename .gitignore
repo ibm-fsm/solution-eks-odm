@@ -5,3 +5,4 @@
 !docs/docsfile
 _quarto_internal_scss_error.scss
 .vscode
+**/*.quarto_ipynb
