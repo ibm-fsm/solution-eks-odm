@@ -8,6 +8,18 @@ date: last-modified
 
 Before deploying the ODM application logic, the infrastructure foundation must be secured. This phase covers provisioning the database, generating internal TLS assets for end-to-end encryption, and creating the necessary Kubernetes secrets.
 
+### 1.0 Create namespace
+
+Create the dedicated namespace for the ODM deployment. It is recommended to set your current context to this namespace to simplify subsequent commands.
+
+```bash
+# 1. Create the namespace
+kubectl create namespace odm-pilot
+
+# 2. Set as current context (Optional but recommended)
+kubectl config set-context --current --namespace=odm-pilot
+```
+
 ### 1.1 Database Provisioning (AWS RDS)
 :::{.panel-tabset}
 
@@ -213,7 +225,7 @@ For this document, we will generate a self-signed certificate using OpenSSL.
 
 The Common Name (`/CN`) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser.
 
-*   **In the Lab:** We use the pattern `odm.<proxy>` (e.g., `/CN=odm.haproxy.gym.lan/O=Lab/C=US`). This ensures the browser accepts the certificate when traffic is routed through your lab's load balancer.
+*   **In the Lab:** We use the pattern `odm.<proxy>` (e.g., `/CN=odm.my-haproxy.gym.lan/O=Lab/C=US`). This ensures the browser accepts the certificate when traffic is routed through your lab's load balancer.
 *   **In Production (AWS ALB):** Use the **Route53 CNAME** or Alias record created for the application (e.g., `/CN=odm.internal.corp`).
     *   *Important:* Do **not** use the raw AWS ALB hostname (e.g., `*.elb.amazonaws.com`) as the CN. Browser security policies will reject the certificate if it identifies the load balancer hardware rather than the application service name.
 :::
@@ -234,7 +246,15 @@ ls -l odm-lab.key odm-lab.crt
 With the database credentials defined and the keystore generated, inject them into the cluster as Kubernetes Secrets.
 
 **Database Credentials Secret:**
-This will be injected into the `server.xml` datasource configuration.
+
+The ODM application requires a Kubernetes Secret to authenticate with the database. Choose the option matching your deployment strategy.
+
+:::{.panel-tabset}
+
+## Option A: Production (External RDS)
+**Target:** Pilot / Production environment using AWS RDS.
+
+Create a secret containing the credentials for your external PostgreSQL instance.
 
 ```bash
 kubectl create secret generic odm-db-secret \
@@ -244,6 +264,24 @@ kubectl create secret generic odm-db-secret \
   --from-literal=db-name=odm_db \
   --from-literal=db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com
 ```
+
+*Note: Ensure the secret name (`odm-db-secret`) matches the `secretCredentials` field in your `values-prod.yaml`.*
+
+## Option B: Lab (Internal DB)
+**Target:** Sandbox / Local Lab using the internal containerized database.
+
+Create a simple secret for the internal PostgreSQL container.
+
+```bash
+kubectl create secret generic odm-db-secret \
+  --namespace odm-pilot \
+  --from-literal=db-user=odm \
+  --from-literal=db-password=odm
+```
+
+*Note: Ensure the secret name (`odm-db-secret`) matches the `secretCredentials` field in your `values-lab.yaml`.*
+
+:::
 
 **TLS Keystore Secret:**
 This will be referenced by the Ingress resource (`tlsSecretRef`) to enable HTTPS.
@@ -294,7 +332,7 @@ If you are working in a lab with direct internet access and no strict OPA regist
 ```bash
 # 1. Get your key from myibm.ibm.com/products-services/containerlibrary
 # 2. Create the secret
-kubectl create secret docker-registry ibm-entitlement-key \
+kubectl create secret docker-registry internal-registry-secret \
   --docker-server=cp.icr.io \
   --docker-username=cp \
   --docker-password=<YOUR_IBM_ENTITLEMENT_KEY> \
