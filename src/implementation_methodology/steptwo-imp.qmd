@@ -56,6 +56,7 @@ image:
   repository: artifactory.internal.corp/odm-repo
   pullSecrets:
     - internal-registry-secret
+  pullPolicy: Always    
   # Note: Global tag is commented out to force component-level digests
   # tag: "9.5.0.1"
 
@@ -166,6 +167,7 @@ image:
   pullSecrets:
     - internal-registry-secret
   # tag: "9.5.0.1"
+  pullPolicy: Always
 
 # 3. Component Digests (From Lab Artifactory)
 decisionCenter:
@@ -200,14 +202,14 @@ customization:
 service:
   type: ClusterIP
   enableRoute: false
-  hostname: "odm.aiops-haproxy.gym.lan"
+  hostname: "odm.my-haproxy.gym.lan"
 
   ingress:
     enabled: true
-    host: "odm.aiops-haproxy.gym.lan"
+    host: "odm.my-haproxy.gym.lan"
     tlsSecretRef: "odm-tls-secret"
     tlsHosts:
-      - "odm.aiops-haproxy.gym.lan"
+      - "odm.my-haproxy.gym.lan"
     annotations:
       kubernetes.io/ingress.class: nginx
       kubernetes.io/ingress.allow-http: "false"
@@ -226,7 +228,7 @@ We utilize Kustomize to patch these resources post-rendering.
 
 #### Create Patch Files
 
-Create a directory (e.g., `odm-overlay`) and populate it with the following three files.
+Define the following files.
 
 ##### File 1: `security-patch.yaml`
 **Target:** Application Deployments (Decision Center, Runner, Console, Runtime).  
@@ -257,6 +259,9 @@ metadata:
   name: .*
 spec:
   template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-lab-odm-test: runtime/default  
     spec:
       # Pod Level Security
       securityContext:
@@ -290,6 +295,89 @@ spec:
             - ALL
 ```
 
+##### File 3: `security-patch-dc.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odm-lab-odm-decisioncenter
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-decisioncenter: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-dc: runtime/default
+```
+
+##### File 4: `security-patch-runner.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odm-lab-odm-decisionrunner
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-decisionrunner: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-decisionrunner: runtime/default
+```
+
+##### File 5: `security-patch-console.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odm-lab-odm-decisionserverconsole
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-decisionserverconsole: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-decisionserverconsole: runtime/default
+```
+
+##### File 6: `security-patch-runtime.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odm-lab-odm-decisionserverruntime
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-decisionserverruntime: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-decisionserverruntime: runtime/default
+```
+
+##### File 7: `force-pull-policy.yaml`
+
+```yaml
+# force-pull-policy.yaml
+# Forces Main Container
+- op: replace
+  path: /spec/template/spec/containers/0/imagePullPolicy
+  value: Always
+# Forces First Init Container (e.g. init-folder-readonlyfs)
+- op: replace
+  path: /spec/template/spec/initContainers/0/imagePullPolicy
+  value: Always
+# Forces Second Init Container (e.g. init-decisionrunner)
+# Note: This will be ignored safely if a pod only has 1 init container
+- op: replace
+  path: /spec/template/spec/initContainers/1/imagePullPolicy
+  value: Always
+```
+
 #### Create Kustomization Manifest
 
 Create the `kustomization.yaml` file to link the patches to the generated resources.
@@ -303,43 +391,52 @@ resources:
   - odm-raw.yaml
 
 patches:
-  # --- PATCH THE DEPLOYMENTS (Apps) ---
+  # Generic Security Patch (Group IDs + Token)
+  # Targets ALL deployments via regex name
   - path: security-patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
-      name: odm-lab-odm-decisioncenter
+      name: "odm-lab-odm-.*"
 
-  - path: security-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: odm-lab-odm-decisionrunner
+  # Specific AppArmor Patches (One per file)
+  - path: security-patch-dc.yaml
+  - path: security-patch-runner.yaml
+  - path: security-patch-console.yaml
+  - path: security-patch-runtime.yaml
 
-  - path: security-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: odm-lab-odm-decisionserverconsole
-
-  - path: security-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: odm-lab-odm-decisionserverruntime
-
-  # --- PATCH THE JOB (Test Connection) ---
+  # Test Job Patch
   - path: job-security-patch.yaml
     target:
       group: batch
       version: v1
       kind: Job
       name: odm-lab-odm-test
+
+  # Force Pull Policy (JSON Patch)
+  # Applies to all ODM deployments
+  - path: force-pull-policy.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: "odm-lab-odm-.*"
 ```
+
+:::{.callout-tip}
+### Lab Workaround: Non-AppArmor Hosts (RHEL/CentOS/Rocky)
+
+If you are running this deployment in a lab environment based on **RHEL, CentOS, or Rocky Linux**, your kernel likely uses **SELinux** instead of AppArmor.
+
+Including the `container.apparmor.security.beta.kubernetes.io` annotations (which are mandatory for the restricted EKS environment) will cause your lab pods to hang in a `Blocked` state with the error: `Cannot enforce AppArmor: AppArmor is not enabled on the host`.
+
+**Action:** Run the following command to strip these annotations from all YAML files in your current directory before applying the configuration:
+
+```bash
+sed -i '/container.apparmor.security.beta.kubernetes.io/d' *.yaml
+```
+:::
 
 ### 2.4 Deploying the Workload
 
