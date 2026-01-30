@@ -1,0 +1,61 @@
+# values-lab.yaml
+
+# 1. License & Auth
+license: true
+usersPassword: "odmAdminPassword123!"
+
+# 2. Image Config (Lab Artifactory)
+image:
+  # document out or remove the repository line to use the default IBM registry (cp.icr.io)
+  repository: artifactory.gym.lan:8443/docker-local
+  pullSecrets:
+    - internal-registry-secret
+  # Do not use tag for lab deployments - use digest instead
+  # tag: "9.5.0.1"
+
+# 3. Component Digests (From Lab Artifactory)
+decisionCenter:
+  tagOrDigest: "sha256:6a0eb1f874ba52918bcd8e2c3acde2d3e428685cad7e5996e0c1227e88d3de0b"
+decisionRunner:
+  tagOrDigest: "sha256:6f0643013e18d848199a73f38c5f6f854c1226ae7702c8294b835b74aa561782"
+decisionServerConsole:
+  tagOrDigest: "sha256:f4c778a388535330ce5d5612d6325d5522cedb70f0cb7895fa7f015a38e5bb9c"
+decisionServerRuntime:
+  tagOrDigest: "sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a"
+
+# 4. Architecture: Internal Database
+# Note: This WILL fail 'psp-fsgroup' checks. Acceptable for Lab only.
+internalDatabase:
+  # Digest for dbserver image
+  tagOrDigest: "sha256:9106481ba539808ea9fed4b7d3197e91732748bc2170e862b729af8cc874f5db"
+  persistence:
+    enabled: true
+    useDynamicProvisioning: true
+    storageClassName: "local-path"
+  runAsUser: 26
+
+# 5. Security Contexts
+customization:
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+  labels:
+    applicationid: "ODM-LAB"
+
+# 6. Ingress Configuration for lab using nginx ingress controller
+service:
+  type: ClusterIP
+  enableRoute: false
+  hostname: "odm.my-haproxy.gym.lan"
+
+  ingress:
+    enabled: true
+    host: "odm.my-haproxy.gym.lan"
+    tlsSecretRef: "odm-tls-secret"
+    tlsHosts:
+      - "odm.my-haproxy.gym.lan"
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      kubernetes.io/ingress.allow-http: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"

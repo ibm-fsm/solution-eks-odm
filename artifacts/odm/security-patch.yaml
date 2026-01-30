@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: .*
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        supplementalGroups: [1001]

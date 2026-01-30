@@ -1,0 +1,35 @@
+resources:
+  - odm-raw.yaml
+
+patches:
+  # Generic Security Patch (Group IDs + Token)
+  # Targets ALL deployments via regex name
+  - path: security-patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: "odm-lab-odm-.*"
+
+  # Specific AppArmor Patches (One per file)
+  - path: security-patch-dc.yaml
+  - path: security-patch-runner.yaml
+  - path: security-patch-console.yaml
+  - path: security-patch-runtime.yaml
+
+  # Test Job Patch
+  - path: job-security-patch.yaml
+    target:
+      group: batch
+      version: v1
+      kind: Job
+      name: odm-lab-odm-test
+
+  # Force Pull Policy (JSON Patch)
+  # Applies to all ODM deployments
+  - path: force-pull-policy.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: "odm-lab-odm-.*"

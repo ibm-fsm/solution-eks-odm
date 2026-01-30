@@ -44,99 +44,9 @@ Select the configuration that matches your deployment phase.
 
 Create a file named `values-prod.yaml`:
 
-```yaml
-# values-prod.yaml
+[Download `values-prod.yaml`](../../artifacts/odm/values-prod.yaml){.btn .btn-outline-primary role="button"}
 
-# 1. License & Auth
-license: true
-usersPassword: "<SET_ADMIN_PASSWORD>"
-
-# 2. Image Config (Internal Mirror)
-image:
-  repository: artifactory.internal.corp/odm-repo
-  pullSecrets:
-    - internal-registry-secret
-  pullPolicy: Always    
-  # Note: Global tag is commented out to force component-level digests
-  # tag: "9.5.0.1"
-
-# 3. Component Digests (Required for 'container-image-must-have-digest' policy)
-# You must obtain the SHA256 digest from your Artifactory for each image.
-decisionCenter:
-  tagOrDigest: "sha256:<INSERT_DC_DIGEST>"
-decisionRunner:
-  tagOrDigest: "sha256:<INSERT_DR_DIGEST>"
-decisionServerConsole:
-  tagOrDigest: "sha256:<INSERT_DSC_DIGEST>"
-decisionServerRuntime:
-  tagOrDigest: "sha256:<INSERT_DSR_DIGEST>"
-
-# 4. Architecture: External Database (Required for 'psp-fsgroup' policy)
-internalDatabase:
-  persistence:
-    enabled: false # Disable internal DB
-
-externalDatabase:
-  type: "postgresql" # or "oracle"
-  serverName: "<RDS_ENDPOINT_ADDRESS>"
-  databaseName: "odmdb"
-  port: "5432"
-  # References the secret created in Prereqs section
-  secretCredentials: "odm-db-secret"
-
-# 5. Security Contexts (Native v9.5 Features)
-customization:
-  runAsUser: 1001
-  # NATIVE FIX: Satisfies psp-seccomp
-  seccompProfile:
-    type: RuntimeDefault
-  # NATIVE FIX: Satisfies must-have-appid
-  labels:
-    applicationid: "ODM-PILOT"
-
-# 6. Ingress Configuration (AWS ALB Specific)
-service:
-  type: ClusterIP
-  enableRoute: false
-  # NATIVE FIX: Satisfies "Host cannot be empty" policy
-  hostname: "odm.internal.corp"
-
-  ingress:
-    enabled: true
-    host: "odm.internal.corp"
-    
-    # NOTE: When using AWS ACM, we do not use k8s TLS secrets. 
-    # However, if OPA strictness requires a TLS block to be present in the YAML, 
-    # leave these empty or define a dummy secret. 
-    # Usually, the 'allow-http: false' annotation satisfies OPA.
-    tlsSecretRef: "" 
-    tlsHosts: []
-
-    annotations:
-      # 1. Controller Class
-      kubernetes.io/ingress.class: alb
-      
-      # 2. Network Configuration
-      alb.ingress.kubernetes.io/scheme: internet-facing
-      # 'ip' mode routes traffic directly to Pod IPs (bypassing NodePort)
-      # This is faster and required for some sticky session configurations
-      alb.ingress.kubernetes.io/target-type: ip
-      
-      # 3. Encryption & Certificates (AWS ACM)
-      # Reference your ACM Certificate ARN here
-      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"
-      # Listen on HTTPS (443)
-      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-      
-      # 4. Backend Security (Re-encryption)
-      # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)
-      alb.ingress.kubernetes.io/backend-protocol: "HTTPS"
-      # Ensure Health Checks also use HTTPS so pods don't fail readiness
-      alb.ingress.kubernetes.io/healthcheck-protocol: "HTTPS"
-      
-      # 5. OPA Compliance
-      # Explicitly disables HTTP to satisfy 'ingress-https-only' policy
-      kubernetes.io/ingress.allow-http: "false"
+```{.yaml include="../../artifacts/odm/values-prod.yaml"}
 ```
 
 :::{.callout-important}
@@ -154,73 +64,16 @@ Standard OPA policies (`ingress-https-only`) often check if the `spec.tls` list 
 
 Create a file named `values-lab.yaml`:
 
-```yaml
-# values-lab.yaml
+[Download `values-lab.yaml`](../../artifacts/odm/values-lab.yaml){.btn .btn-outline-primary role="button"}
 
-# 1. License & Auth
-license: true
-usersPassword: "odmAdminPassword123!"
-
-# 2. Image Config (Lab Artifactory)
-image:
-  repository: artifactory.gym.lan:8443/docker-local
-  pullSecrets:
-    - internal-registry-secret
-  # tag: "9.5.0.1"
-  pullPolicy: Always
-
-# 3. Component Digests (From Lab Artifactory)
-decisionCenter:
-  tagOrDigest: "sha256:6a0eb1f874ba52918bcd8e2c3acde2d3e428685cad7e5996e0c1227e88d3de0b"
-decisionRunner:
-  tagOrDigest: "sha256:6f0643013e18d848199a73f38c5f6f854c1226ae7702c8294b835b74aa561782"
-decisionServerConsole:
-  tagOrDigest: "sha256:f4c778a388535330ce5d5612d6325d5522cedb70f0cb7895fa7f015a38e5bb9c"
-decisionServerRuntime:
-  tagOrDigest: "sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a"
-
-# 4. Architecture: Internal Database
-# Note: This WILL fail 'psp-fsgroup' checks. Acceptable for Lab only.
-internalDatabase:
-  # Digest for dbserver image
-  tagOrDigest: "sha256:9106481ba539808ea9fed4b7d3197e91732748bc2170e862b729af8cc874f5db"
-  persistence:
-    enabled: true
-    useDynamicProvisioning: true
-    storageClassName: "local-path"
-  runAsUser: 26
-
-# 5. Security Contexts
-customization:
-  runAsUser: 1001
-  seccompProfile:
-    type: RuntimeDefault
-  labels:
-    applicationid: "ODM-LAB"
-
-# 6. Ingress Configuration
-service:
-  type: ClusterIP
-  enableRoute: false
-  hostname: "odm.my-haproxy.gym.lan"
-
-  ingress:
-    enabled: true
-    host: "odm.my-haproxy.gym.lan"
-    tlsSecretRef: "odm-tls-secret"
-    tlsHosts:
-      - "odm.my-haproxy.gym.lan"
-    annotations:
-      kubernetes.io/ingress.class: nginx
-      kubernetes.io/ingress.allow-http: "false"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+```{.yaml include="../../artifacts/odm/values-lab.yaml"}
 ```
+
 :::
 
 ### 2.3. Kustomize Workarounds
 
-While ODM v9.5 resolves many security configurations natively, two critical gaps remain that cannot be fixed via `values.yaml` alone:  
+While ODM v9.5 resolves many security configurations natively, critical gaps remain that cannot be fixed via `values.yaml` alone:  
 1.  **Group ID Enforcement:** The Helm chart ignores `runAsGroup` and `supplementalGroups` for Deployments.  
 2.  **Test Job Compliance:** The `odm-test-connection` Job created by the chart lacks resource limits, security contexts, and image digest support.
 
@@ -234,148 +87,63 @@ Define the following files.
 **Target:** Application Deployments (Decision Center, Runner, Console, Runtime).  
 **Purpose:** Injects the mandatory Group IDs required by the "Restricted" OPA policy.
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: .*
-spec:
-  template:
-    spec:
-      securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
-        supplementalGroups: [1001]
+[Download `security-patch.yaml`](../../artifacts/odm/security-patch.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/security-patch.yaml"}
 ```
 
 ##### File 2: `job-security-patch.yaml`
 **Target:** The Database Connection Test Job.  
 **Purpose:** This job is "unconfigurable" in the standard chart. We must patch it to enforce Image Digests, Resource Limits, and strict Security Contexts.
 
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: .*
-spec:
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/odm-lab-odm-test: runtime/default  
-    spec:
-      # Pod Level Security
-      securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
-        supplementalGroups: [1001]
-        seccompProfile:
-          type: RuntimeDefault
+[Download `job-security-patch.yaml`](../../artifacts/odm/job-security-patch.yaml){.btn .btn-outline-primary role="button"}
 
-      containers:
-      - name: odm-lab-odm-test
-        # CRITICAL: The Helm chart does not support digests for this specific job.
-        # You must hardcode the mirrored Runtime image and SHA256 digest here.
-        image: artifactory.internal.corp/odm-repo/odm-decisionserverruntime@sha256:<INSERT_RUNTIME_SHA256_HERE>
-
-        # Fix "container-must-have-limits-and-requests"
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-
-        # Fix "privilege-escalation", "capabilities", "readonlyrootfilesystem"
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-            - ALL
+```{.yaml include="../../artifacts/odm/job-security-patch.yaml"}
 ```
 
 ##### File 3: `security-patch-dc.yaml`
+**Target:** Decision Center Deployment.  
+**Purpose:** Injects the mandatory `runAsGroup: 1001` and `supplementalGroups` into the Decision Center pods, as the Helm chart template ignores these values for this component.
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: odm-lab-odm-decisioncenter
-spec:
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/odm-decisioncenter: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-dc: runtime/default
+[Download `security-patch-dc.yaml`](../../artifacts/odm/security-patch-dc.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/security-patch-dc.yaml"}
 ```
 
 ##### File 4: `security-patch-runner.yaml`
+**Target:** Decision Runner Deployment.  
+**Purpose:** Injects the mandatory `runAsGroup: 1001` and `supplementalGroups` into the Decision Runner pods to satisfy the "Restricted" OPA policy.
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: odm-lab-odm-decisionrunner
-spec:
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/odm-decisionrunner: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-decisionrunner: runtime/default
+[Download `security-patch-runner.yaml`](../../artifacts/odm/security-patch-runner.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/security-patch-runner.yaml"}
 ```
 
 ##### File 5: `security-patch-console.yaml`
+**Target:** Decision Server Console Deployment.  
+**Purpose:** Injects the mandatory `runAsGroup: 1001` and `supplementalGroups` into the Rule Execution Server Console pods.
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: odm-lab-odm-decisionserverconsole
-spec:
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/odm-decisionserverconsole: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-decisionserverconsole: runtime/default
+[Download `security-patch-console.yaml`](../../artifacts/odm/security-patch-console.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/security-patch-console.yaml"}
 ```
 
 ##### File 6: `security-patch-runtime.yaml`
+**Target:** Decision Server Runtime Deployment.  
+**Purpose:** Injects the mandatory `runAsGroup: 1001` and `supplementalGroups` into the Rule Execution Server Runtime pods.
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: odm-lab-odm-decisionserverruntime
-spec:
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/odm-decisionserverruntime: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
-        container.apparmor.security.beta.kubernetes.io/init-decisionserverruntime: runtime/default
+[Download `security-patch-runtime.yaml`](../../artifacts/odm/security-patch-runtime.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/security-patch-runtime.yaml"}
 ```
 
 ##### File 7: `force-pull-policy.yaml`
+**Target:** All ODM Deployments and Jobs.  
+**Purpose:** A JSON Patch that overrides the `imagePullPolicy` for **all** containers (including Init Containers, which cannot be configured via Helm). This forces the policy to `Always`, satisfying strict image currency requirements.
 
-```yaml
-# force-pull-policy.yaml
-# Forces Main Container
-- op: replace
-  path: /spec/template/spec/containers/0/imagePullPolicy
-  value: Always
-# Forces First Init Container (e.g. init-folder-readonlyfs)
-- op: replace
-  path: /spec/template/spec/initContainers/0/imagePullPolicy
-  value: Always
-# Forces Second Init Container (e.g. init-decisionrunner)
-# Note: This will be ignored safely if a pod only has 1 init container
-- op: replace
-  path: /spec/template/spec/initContainers/1/imagePullPolicy
-  value: Always
+[Download `force-pull-policy.yaml`](../../artifacts/odm/force-pull-policy.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/force-pull-policy.yaml"}
 ```
 
 #### Create Kustomization Manifest
@@ -386,42 +154,9 @@ Create the `kustomization.yaml` file to link the patches to the generated resour
 
 *Note: The names below assume your Helm Release Name is `odm-lab`. If you use `odm-pilot`, update the names accordingly (e.g., `odm-pilot-odm-decisioncenter`).*
 
-```yaml
-resources:
-  - odm-raw.yaml
+[Download `kustomization.yaml`](../../artifacts/odm/kustomization.yaml){.btn .btn-outline-primary role="button"}
 
-patches:
-  # Generic Security Patch (Group IDs + Token)
-  # Targets ALL deployments via regex name
-  - path: security-patch.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: "odm-lab-odm-.*"
-
-  # Specific AppArmor Patches (One per file)
-  - path: security-patch-dc.yaml
-  - path: security-patch-runner.yaml
-  - path: security-patch-console.yaml
-  - path: security-patch-runtime.yaml
-
-  # Test Job Patch
-  - path: job-security-patch.yaml
-    target:
-      group: batch
-      version: v1
-      kind: Job
-      name: odm-lab-odm-test
-
-  # Force Pull Policy (JSON Patch)
-  # Applies to all ODM deployments
-  - path: force-pull-policy.yaml
-    target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: "odm-lab-odm-.*"
+```{.yaml include="../../artifacts/odm/kustomization.yaml"}
 ```
 
 :::{.callout-tip}
@@ -450,7 +185,7 @@ helm template odm-lab ibm-helm/ibm-odm-prod \
   -f values-prod.yaml > odm-raw.yaml
 
 # 2. Apply Patches & Deploy
-kubectl apply -k .
+kubectl -n odm-pilot apply -k .
 ```
 
 ::: {.callout-tip}

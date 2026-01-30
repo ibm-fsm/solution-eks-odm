@@ -155,6 +155,12 @@ To get a comprehensive list of every active policy violation in the cluster (aud
 kubectl get constraints -o jsonpath='{range .items[*]}{"POLICY: "}{.metadata.name}{"\n"}{range .status.violations[*]}{"  FAIL: "}{.message}{"\n    -> Resource:  "}{.kind}/{.name}{"\n"}{end}{"\n"}{end}'
 ```
 
+If you only want violations from the `odm-pilot` namespace:
+
+```bash
+kubectl get constraints -o jsonpath='{range .items[*]}{"POLICY: "}{.metadata.name}{"\n"}{range .status.violations[?(@.namespace=="odm-pilot")]}{"  FAIL: "}{.message}{"\n    -> Resource:  "}{.kind}/{.name}{"\n"}{end}{"\n"}{end}'
+```
+
 **Output Example:**
 ```text
 POLICY: ingress-must-be-secure

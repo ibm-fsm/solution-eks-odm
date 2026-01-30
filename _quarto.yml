@@ -5,6 +5,9 @@ project:
 language: 
       search-text-placeholder: Search
 
+filters:
+  - include-code-files
+  
 website:
   title: ODM on EKS
   site-url: "https://ibm-fsm.github.io/solution-eks-odm"

@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odm-lab-odm-decisionserverconsole
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-decisionserverconsole: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-folder-readonlyfs: runtime/default
+        container.apparmor.security.beta.kubernetes.io/init-decisionserverconsole: runtime/default
