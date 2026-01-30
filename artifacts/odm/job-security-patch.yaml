@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: .*
+spec:
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/odm-lab-odm-test: runtime/default  
+    spec:
+      # Pod Level Security
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        supplementalGroups: [1001]
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+      - name: odm-lab-odm-test
+        # CRITICAL: The Helm chart does not support digests for this specific job.
+        # You must hardcode the mirrored Runtime image and SHA256 digest here or comment out to use default cp.icr.io
+        image: artifactory.internal.corp/odm-repo/odm-decisionserverruntime@sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a
+        # Use the following for default image from IBM Container Registry
+        #image: cp.icr.io/cp/cp4a/odm/odm-decisionserverruntime@sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a
+
+        # Fix "container-must-have-limits-and-requests"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+        # Fix "privilege-escalation", "capabilities", "readonlyrootfilesystem"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL

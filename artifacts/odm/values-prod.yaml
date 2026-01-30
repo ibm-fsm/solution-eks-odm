@@ -1,0 +1,91 @@
+# values-prod.yaml
+
+# 1. License & Auth
+license: true
+usersPassword: "<SET_ADMIN_PASSWORD>"
+
+# 2. Image Config (Internal Mirror)
+image:
+  repository: artifactory.internal.corp/odm-repo
+  pullSecrets:
+    - internal-registry-secret
+  # Note: Global tag is commented out to force component-level digests
+  # tag: "9.5.0.1"
+
+# 3. Component Digests (Required for 'container-image-must-have-digest' policy)
+# You must obtain the SHA256 digest from your Artifactory for each image.
+decisionCenter:
+  tagOrDigest: "sha256:6a0eb1f874ba52918bcd8e2c3acde2d3e428685cad7e5996e0c1227e88d3de0b"
+decisionRunner:
+  tagOrDigest: "sha256:6f0643013e18d848199a73f38c5f6f854c1226ae7702c8294b835b74aa561782"
+decisionServerConsole:
+  tagOrDigest: "sha256:f4c778a388535330ce5d5612d6325d5522cedb70f0cb7895fa7f015a38e5bb9c"
+decisionServerRuntime:
+  tagOrDigest: "sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a"
+
+# 4. Architecture: External Database (Required for 'psp-fsgroup' policy)
+internalDatabase:
+  persistence:
+    enabled: false # Disable internal DB
+
+externalDatabase:
+  type: "postgresql" # or "oracle"
+  serverName: "<RDS_ENDPOINT_ADDRESS>"
+  databaseName: "odmdb"
+  port: "5432"
+  # References the secret created in Prereqs section
+  secretCredentials: "odm-db-secret"
+
+# 5. Security Contexts (Native v9.5 Features)
+customization:
+  runAsUser: 1001
+  # NATIVE FIX: Satisfies psp-seccomp
+  seccompProfile:
+    type: RuntimeDefault
+  # NATIVE FIX: Satisfies must-have-appid
+  labels:
+    applicationid: "ODM-PILOT"
+
+# 6. Ingress Configuration (AWS ALB Specific)
+service:
+  type: ClusterIP
+  enableRoute: false
+  # NATIVE FIX: Satisfies "Host cannot be empty" policy
+  hostname: "odm.internal.corp"
+
+  ingress:
+    enabled: true
+    host: "odm.internal.corp"
+    
+    # NOTE: When using AWS ACM, we do not use k8s TLS secrets. 
+    # However, if OPA strictness requires a TLS block to be present in the YAML, 
+    # leave these empty or define a dummy secret. 
+    # Usually, the 'allow-http: false' annotation satisfies OPA.
+    tlsSecretRef: "" 
+    tlsHosts: []
+
+    annotations:
+      # 1. Controller Class
+      kubernetes.io/ingress.class: alb
+      
+      # 2. Network Configuration
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      # 'ip' mode routes traffic directly to Pod IPs (bypassing NodePort)
+      # This is faster and required for some sticky session configurations
+      alb.ingress.kubernetes.io/target-type: ip
+      
+      # 3. Encryption & Certificates (AWS ACM)
+      # Reference your ACM Certificate ARN here
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"
+      # Listen on HTTPS (443)
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      
+      # 4. Backend Security (Re-encryption)
+      # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)
+      alb.ingress.kubernetes.io/backend-protocol: "HTTPS"
+      # Ensure Health Checks also use HTTPS so pods don't fail readiness
+      alb.ingress.kubernetes.io/healthcheck-protocol: "HTTPS"
+      
+      # 5. OPA Compliance
+      # Explicitly disables HTTP to satisfy 'ingress-https-only' policy
+      kubernetes.io/ingress.allow-http: "false"
