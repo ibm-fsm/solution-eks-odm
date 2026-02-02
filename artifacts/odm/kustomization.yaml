@@ -9,7 +9,7 @@ patches:
       group: apps
       version: v1
       kind: Deployment
-      name: "odm-lab-odm-.*"
+      name: "odm-lab-odm-.*" # "odm-pilot-odm-.*"
 
   # Specific AppArmor Patches (One per file)
   - path: security-patch-dc.yaml
@@ -23,7 +23,7 @@ patches:
       group: batch
       version: v1
       kind: Job
-      name: odm-lab-odm-test
+      name: odm-lab-odm-test # "odm-pilot-odm-test"
 
   # Force Pull Policy (JSON Patch)
   # Applies to all ODM deployments
@@ -32,4 +32,4 @@ patches:
       group: apps
       version: v1
       kind: Deployment
-      name: "odm-lab-odm-.*"
+      name: "odm-lab-odm-.*" # "odm-pilot-odm-.*"
