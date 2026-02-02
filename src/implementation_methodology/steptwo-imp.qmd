@@ -179,6 +179,7 @@ Run the build pipeline to generate the patched manifests and apply them to the c
 
 ```bash
 # 1. Render Helm Template
+# (Change values-prod.yaml to values-lab.yaml if needed)
 helm template odm-lab ibm-helm/ibm-odm-prod \
   --version 25.1.0 \
   --kube-version 1.28.0 \
