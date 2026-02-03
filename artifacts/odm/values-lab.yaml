@@ -33,6 +33,17 @@ internalDatabase:
     useDynamicProvisioning: true
     storageClassName: "local-path"
   runAsUser: 26
+# Uncomment below to use "external" DB in lab setting, ensure that internalDatabase above is commented out
+# internalDatabase:
+#   persistence:
+#     enabled: false # Disable internal DB
+# externalDatabase:
+#   type: "postgresql"
+#   serverName: "postgres.postgres.svc.cluster.local"
+#   databaseName: "odm_db"
+#   port: "5432"
+#   # References the secret created in Prereqs section
+#   secretCredentials: "odm-db-secret"
 
 # 5. Security Contexts
 customization:

@@ -8,7 +8,7 @@
   path: /spec/template/spec/initContainers/0/imagePullPolicy
   value: Always
 # Forces Second Init Container (e.g. init-decisionrunner)
-# Note: This will be ignored safely if a pod only has 1 init container
-- op: replace
-  path: /spec/template/spec/initContainers/1/imagePullPolicy
-  value: Always
+# Note: This needs uncommented if using internal database in a lab setting for OPA constraint
+# - op: replace
+#   path: /spec/template/spec/initContainers/1/imagePullPolicy
+#   value: Always

@@ -32,7 +32,7 @@ ODM requires a robust persistence layer. We utilize **AWS RDS for PostgreSQL** (
     *   **Outbound Rule:** Allow return traffic.
 
 
-## Option B: PostgreSQL
+## Option B: Lab (PostgreSQL)
 Create PostgreSQL in a separate name space to similate a similar setup to a prod environment with AWS RDS.
 
 1.  **Create New Namespace (PostgreSQL)**
@@ -46,9 +46,9 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
 
     ```bash
     kubectl -n postgres create secret generic postgres-secret \
-      --from-literal=POSTGRES_DB=postgresdb \
-      --from-literal=POSTGRES_USER=postgresuser \
-      --from-literal=POSTGRES_PASSWORD=postgrespassword
+      --from-literal=POSTGRES_DB=postgres \
+      --from-literal=POSTGRES_USER=postgres \
+      --from-literal=POSTGRES_PASSWORD='StrongPassword123!'
     ```
 3.  **Create persistent value storage**
     
@@ -77,7 +77,7 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
     ```bash 
     kubectl apply -f postgres-pvc.yaml
     ```
-    Should output: ```bash persistentvolumeclaim/postgres-pvc created```
+    Should output: ```persistentvolumeclaim/postgres-pvc created```
 4.  **Create the deployment yaml**
 
     ```bash 
@@ -123,7 +123,7 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
     kubectl apply -f postgres-deployment.yaml
     ```
 
-    Expected output: ```bash deployment.apps/postgres created```
+    Expected output: ```deployment.apps/postgres created```
 
 
 5.  **Check that the Postgres pod is running**
@@ -147,7 +147,7 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
     ```bash
     kubectl -n postgres get pvc
     ```
-    **Note:** if it gets stuck, run ```bash kubectl -n postgres describe pod postgres-xxxxx```
+    **Note:** if it gets stuck, run ```kubectl -n postgres describe pod postgres-xxxxx```
 7. **Create the service file (once pod is running)**
     
     ```bash
@@ -177,16 +177,28 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
     kubectl apply -f postgres-service.yaml
     ```
 
-    Expected output ```bash service/postgres created```
+    Expected output ```service/postgres created```
 
-8. **Verify that the volume is running**
+8. **Verify that the volume is running**  
+    
+    ```bash
+    kubectl -n postgres get svc
+    ```
 
-  ```bash
-  kubectl -n postgres get svc
-  ```
+    You should now have `postgres-pvc.yaml`, `postgres-deployment.yaml`, and `postgres-service.yaml` under the `~/k3s/postgres` directory.
 
-  You should now have postgres-pvc.yaml, postgres-deployment.yaml, and postgres-service.yaml under the /home/clouduser/k3s/postgres directory
+9. **Connect to the database to create schema and user**
 
+    ```bash
+    kubectl exec -it -n postgres \
+    $(kubectl get pods -n postgres -l app=postgres --field-selector=status.phase=Running -o jsonpath="{.items[0].metadata.name}") \
+    -- psql -U postgres
+    ```
+
+:::{.callout-note}
+### Database Connection Details: 
+The database host for the internal PostgreSQL deployment will be `postgres.postgres.svc.cluster.local` on port `5432`. Use this for configuring the ODM application connection string in the subsequent steps.
+:::
 
 :::
 
@@ -276,7 +288,22 @@ Create a simple secret for the internal PostgreSQL container.
 kubectl create secret generic odm-db-secret \
   --namespace odm-pilot \
   --from-literal=db-user=odm \
-  --from-literal=db-password=odm
+  --from-literal=db-password='StrongPassword123!'
+```
+
+*Note: Ensure the secret name (`odm-db-secret`) matches the `secretCredentials` field in your `values-lab.yaml`.*
+
+## Option C: Lab (Postgres)
+**Target:** Sandbox / Local Lab using the "external" postgres database.
+
+Create a simple secret for the PostgreSQL database running in the `postgres` namespace.
+
+```bash
+kubectl create secret generic odm-db-secret \
+  --namespace odm-pilot \
+  --from-literal=db-user='odm' \
+  --from-literal=db-password='StrongPassword123!' \
+  --from-literal=db-server='postgres.postgres.svc.cluster.local'
 ```
 
 *Note: Ensure the secret name (`odm-db-secret`) matches the `secretCredentials` field in your `values-lab.yaml`.*

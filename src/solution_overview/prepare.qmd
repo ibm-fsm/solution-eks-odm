@@ -18,6 +18,14 @@ The automation bastion or engineer's workstation requires connectivity to the ta
 *   **Kustomize** (v4+ or built-in via `kubectl -k`) for manifest post-rendering.
 *   **OpenShift CLI (`oc`)** or **Skopeo** (Optional): Recommended tools for manual image mirroring if an automated enterprise pipeline is not available.
 
+:::{.callout-tip}
+### Helm 3 install on Linux (RHEL 8): 
+
+```bash
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
+:::
+
 ### 2. Database Strategy
 The standard containerized database included with the product requires privileged filesystem groups (`fsGroup: 26`), which is incompatible with the target environment's OPA policies.
 
@@ -39,6 +47,11 @@ For non-production pilot environments, the client may provide their own approved
 ### 3. Supply Chain (Image Mirroring)
 The target environment prohibits direct access to public registries (`cp.icr.io`). All container images must be staged in the client's internal trusted registry (e.g., Artifactory).
 
+:::{.callout-note}
+### IBM entitlement key 
+You will need an IBM entitlement key to mirror the images or install without mirroring. This can be obtained [here](https://myibm.ibm.com/products-services/containerlibrary).
+:::
+
 **Enterprise Pipeline Integration**
 If the organization utilizes a centralized image ingestion process, please configure the pipeline to pull from the **IBM Entitled Registry** using the source details below.
 
@@ -57,7 +70,7 @@ If the organization utilizes a centralized image ingestion process, please confi
 | Database Init Utility | `dbserver` |
 
 :::{.callout-tip}
-**Manual Mirroring Alternative:**
+### Manual Mirroring Alternative 
 In the absence of an automated ingestion pipeline, we recommend using the **OpenShift CLI (`oc`)** or **Skopeo**. These tools efficiently copy multi-architecture manifest lists between registries without requiring intermediate disk storage or Docker daemons.
 :::
 
@@ -73,10 +86,11 @@ The Kubernetes namespace must be prepared with the necessary secrets and network
     *   **If using Option A (AWS RDS):** No Storage Class is required for the database layer.
 
 :::{.callout-important}
-**OPA Policy Alignment:** Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.
+### OPA Policy Alignment
+Ensure that the Namespace does not have any legacy PodSecurityPolicies attached that might conflict with the OPA Gatekeeper constraints. The solution relies entirely on the OPA constraints for security governance.
 :::
 
 :::{.callout-tip}
-**Lab & Sandbox Setup:**
+### Lab & Sandbox Setup
 If you are attempting to reproduce this environment in a local lab (e.g., k3s or Minikube) and need to manually install OPA Gatekeeper to simulate the constraint layer, please refer to the [Lab Setup Guide: OPA Gatekeeper Configuration](https://ibm-client-engineering.github.io/solution-journal-quantum-safe/src/guardium_insights/04_optional_services.html#configure-security-constraints-optional).
 :::

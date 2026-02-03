@@ -31,7 +31,7 @@ internalDatabase:
 externalDatabase:
   type: "postgresql" # or "oracle"
   serverName: "<RDS_ENDPOINT_ADDRESS>"
-  databaseName: "odmdb"
+  databaseName: "odm_db"
   port: "5432"
   # References the secret created in Prereqs section
   secretCredentials: "odm-db-secret"
