@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-02-02">
+<meta name="dcterms.date" content="2026-02-03">
 
 <title>ODM Deployment &amp; Traffic Exposure – ODM on EKS</title>
 <style>
@@ -276,7 +276,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">February 2, 2026</p>
+      <p class="date">February 3, 2026</p>
     </div>
   </div>
   
@@ -363,7 +363,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="fu">externalDatabase</span><span class="kw">:</span></span>
 <span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> </span><span class="st">"postgresql"</span><span class="co"> # or "oracle"</span></span>
 <span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">serverName</span><span class="kw">:</span><span class="at"> </span><span class="st">"&lt;RDS_ENDPOINT_ADDRESS&gt;"</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">databaseName</span><span class="kw">:</span><span class="at"> </span><span class="st">"odmdb"</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">databaseName</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm_db"</span></span>
 <span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="st">"5432"</span></span>
 <span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="co">  # References the secret created in Prereqs section</span></span>
 <span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">secretCredentials</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm-db-secret"</span></span>
@@ -477,32 +477,43 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">useDynamicProvisioning</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
 <span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">storageClassName</span><span class="kw">:</span><span class="at"> </span><span class="st">"local-path"</span></span>
 <span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">runAsUser</span><span class="kw">:</span><span class="at"> </span><span class="dv">26</span></span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Security Contexts</span></span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">customization</span><span class="kw">:</span></span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">runAsUser</span><span class="kw">:</span><span class="at"> </span><span class="dv">1001</span></span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">seccompProfile</span><span class="kw">:</span></span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> RuntimeDefault</span></span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">labels</span><span class="kw">:</span></span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">applicationid</span><span class="kw">:</span><span class="at"> </span><span class="st">"ODM-LAB"</span></span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Ingress Configuration for lab using nginx ingress controller</span></span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="fu">service</span><span class="kw">:</span></span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> ClusterIP</span></span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">enableRoute</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hostname</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">ingress</span><span class="kw">:</span></span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">host</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsSecretRef</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm-tls-secret"</span></span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsHosts</span><span class="kw">:</span></span>
-<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">annotations</span><span class="kw">:</span></span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.class</span><span class="kw">:</span><span class="at"> nginx</span></span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.allow-http</span><span class="kw">:</span><span class="at"> </span><span class="st">"false"</span></span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nginx.ingress.kubernetes.io/ssl-redirect</span><span class="kw">:</span><span class="at"> </span><span class="st">"true"</span></span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nginx.ingress.kubernetes.io/backend-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="co"># Uncomment below to use "external" DB in lab setting, ensure that internalDatabase above is commented out</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="co"># internalDatabase:</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="co">#   persistence:</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="co">#     enabled: false # Disable internal DB</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="co"># externalDatabase:</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="co">#   type: "postgresql"</span></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a><span class="co">#   serverName: "postgres.postgres.svc.cluster.local"</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="co">#   databaseName: "odm_db"</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a><span class="co">#   port: "5432"</span></span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a><span class="co">#   # References the secret created in Prereqs section</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a><span class="co">#   secretCredentials: "odm-db-secret"</span></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Security Contexts</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">customization</span><span class="kw">:</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">runAsUser</span><span class="kw">:</span><span class="at"> </span><span class="dv">1001</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">seccompProfile</span><span class="kw">:</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> RuntimeDefault</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">labels</span><span class="kw">:</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">applicationid</span><span class="kw">:</span><span class="at"> </span><span class="st">"ODM-LAB"</span></span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="co"># 6. Ingress Configuration for lab using nginx ingress controller</span></span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="fu">service</span><span class="kw">:</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> ClusterIP</span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">enableRoute</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hostname</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">ingress</span><span class="kw">:</span></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">host</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsSecretRef</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm-tls-secret"</span></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsHosts</span><span class="kw">:</span></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="st">"odm.my-haproxy.gym.lan"</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">annotations</span><span class="kw">:</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.class</span><span class="kw">:</span><span class="at"> nginx</span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.allow-http</span><span class="kw">:</span><span class="at"> </span><span class="st">"false"</span></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nginx.ingress.kubernetes.io/ssl-redirect</span><span class="kw">:</span><span class="at"> </span><span class="st">"true"</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nginx.ingress.kubernetes.io/backend-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </div>
@@ -511,12 +522,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="kustomize-workarounds" class="level3">
 <h3 class="anchored" data-anchor-id="kustomize-workarounds">2.3. Kustomize Workarounds</h3>
 <p>While ODM v9.5 resolves many security configurations natively, critical gaps remain that cannot be fixed via <code>values.yaml</code> alone:<br>
-1. <strong>Group ID Enforcement:</strong> The Helm chart ignores <code>runAsGroup</code> and <code>supplementalGroups</code> for Deployments.<br>
-2. <strong>Test Job Compliance:</strong> The <code>odm-test-connection</code> Job created by the chart lacks resource limits, security contexts, and image digest support.</p>
-<p>We utilize Kustomize to patch these resources post-rendering.</p>
+1. <strong>Group ID Enforcement:</strong> The Helm chart templates explicitly define <code>runAsUser</code> but ignore <code>runAsGroup</code> and <code>supplementalGroups</code>. This causes the pods to fail the <code>psp-pods-allowed-user-ranges</code> policy. We inject these fields (<code>1001</code>) into every Deployment. 2. <strong>Test Job Compliance:</strong> The <code>odm-test-connection</code> Job generated by the chart is unconfigurable via <code>values.yaml</code>. It lacks Resource Limits, Security Contexts, and Image Digests. We patch this job to add all missing security fields. 3. <strong>Image Pull Policy (Init Containers):</strong> The OPA policy requires <code>imagePullPolicy: Always</code> for <em>all</em> containers. The Helm chart defaults Init Containers to <code>IfNotPresent</code> with no option to override. We use a <strong>JSON Patch</strong> to forcibly update the pull policy on every container in the manifest.</p>
 <section id="create-patch-files" class="level4">
 <h4 class="anchored" data-anchor-id="create-patch-files">Create Patch Files</h4>
-<p>Define the following files.</p>
+<p>Define the following files in your overlay directory. Note that we utilize distinct patch files for each component to ensure explicit targeting and avoid accidental modification of infrastructure components (such as the database).</p>
 <section id="file-1-security-patch.yaml" class="level5">
 <h5 class="anchored" data-anchor-id="file-1-security-patch.yaml">File 1: <code>security-patch.yaml</code></h5>
 <p><strong>Target:</strong> Application Deployments (Decision Center, Runner, Console, Runtime).<br>
@@ -665,10 +674,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">path</span><span class="kw">:</span><span class="at"> /spec/template/spec/initContainers/0/imagePullPolicy</span></span>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">value</span><span class="kw">:</span><span class="at"> Always</span></span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Forces Second Init Container (e.g. init-decisionrunner)</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: This will be ignored safely if a pod only has 1 init container</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">op</span><span class="kw">:</span><span class="at"> replace</span></span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">path</span><span class="kw">:</span><span class="at"> /spec/template/spec/initContainers/1/imagePullPolicy</span></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">value</span><span class="kw">:</span><span class="at"> Always</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: This needs uncommented if using internal database in a lab setting for OPA constraint</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="co"># - op: replace</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">#   path: /spec/template/spec/initContainers/1/imagePullPolicy</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co">#   value: Always</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 </section>
 <section id="create-kustomization-manifest" class="level4">
@@ -755,7 +764,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>After deployment, verify that the ALB has successfully registered the targets.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> get ingress <span class="at">-n</span> odm-pilot</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Look for the ADDRESS field (e.g., k8s-odmpilot-xxxx.us-east-1.elb.amazonaws.com)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Navigate to <code>https://odm.mycompany.com/decisioncenter</code>. If the page loads securely, End-to-End encryption is functioning correctly.</p>
+<p>Navigate to <code>https://odm.mycompany.com/decisioncenter</code>. If the page loads securely, End-to-End encryption is functioning correctly.<br>
+Use <code>odmAdmin</code> and the password you set in the <code>values.yaml</code> to log in (e.g.&nbsp;<code>odmAdminPassword123!</code>).</p>
 </div>
 </div>
 
