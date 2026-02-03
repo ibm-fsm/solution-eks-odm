@@ -6,7 +6,7 @@ format: html
 date: last-modified
 ---
 ```{=html}
-<span class="dot">SL</span> &ensp;Mat Davis&ensp;
+<span class="dot">MD</span> &ensp;Mat Davis&ensp;&nbsp;<span class="dot">MS</span> &ensp;Maria Salamone&ensp;
 ```
 <br>
 ---
