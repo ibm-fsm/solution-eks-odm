@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-02-03">
+<meta name="dcterms.date" content="2026-02-11">
 
 <title>Environment Architecture – ODM on EKS</title>
 <style>
@@ -248,7 +248,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">February 3, 2026</p>
+      <p class="date">February 11, 2026</p>
     </div>
   </div>
   
@@ -266,7 +266,7 @@ ul.task-list li input[type="checkbox"] {
 <p>The deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.</p>
 <ul>
 <li><strong>Compute:</strong> Stateless Pods running on AWS EKS Worker Nodes.</li>
-<li><strong>Persistence:</strong> External AWS RDS (PostgreSQL) for transactional data.</li>
+<li><strong>Persistence:</strong> External Oracle for transactional data.</li>
 <li><strong>Artifacts:</strong> Internal Trusted Registry (Artifactory) for container images.</li>
 <li><strong>Routing:</strong> Ingress Controller handling TLS termination and routing to internal ClusterIP services.</li>
 </ul>
@@ -321,7 +321,7 @@ ul.task-list li input[type="checkbox"] {
                 end
             end
 
-            Database[("AWS RDS PostgreSQL")]
+            Database[("Oracle")]
         end
     end
 
@@ -344,10 +344,10 @@ ul.task-list li input[type="checkbox"] {
     ALB --&gt;|"HTTPS"| DSR
 
     %% Database Connectivity
-    DC --&gt;|"JDBC/TCP 5432"| Database
-    DR --&gt;|"JDBC/TCP 5432"| Database
-    DSC --&gt;|"JDBC/TCP 5432"| Database
-    DSR --&gt;|"JDBC/TCP 5432"| Database
+    DC --&gt;|"JDBC/TCP 1521"| Database
+    DR --&gt;|"JDBC/TCP 1521"| Database
+    DSC --&gt;|"JDBC/TCP 1521"| Database
+    DSR --&gt;|"JDBC/TCP 1521"| Database
 
     %% Image Pulls
     DC -.-&gt;|"Image Pull"| Registry
@@ -406,8 +406,8 @@ ul.task-list li input[type="checkbox"] {
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Database</strong></td>
-<td style="text-align: left;">PostgreSQL 12+</td>
-<td style="text-align: left;">External Persistence Layer (AWS RDS)</td>
+<td style="text-align: left;">Oracle 19c or 23ai</td>
+<td style="text-align: left;">External Persistence Layer (AWS RDS or EC2)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Policy Engine</strong></td>

@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-02-03">
+<meta name="dcterms.date" content="2026-02-11">
 
 <title>Deployment Readiness – ODM on EKS</title>
 <style>
@@ -276,7 +276,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">February 3, 2026</p>
+      <p class="date">February 11, 2026</p>
     </div>
   </div>
   
@@ -319,15 +319,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="database-strategy">2. Database Strategy</h3>
 <p>The standard containerized database included with the product requires privileged filesystem groups (<code>fsGroup: 26</code>), which is incompatible with the target environment’s OPA policies.</p>
 <p>Please select <strong>ONE</strong> of the following compliant strategies for this deployment:</p>
-<p><strong>Option A: AWS RDS (Production Recommended)</strong> Utilize a managed database service to completely offload persistence management and security compliance from the Kubernetes cluster.</p>
+<p><strong>Option A: External Oracle Database (Production Recommended)</strong> Utilize a managed database service or self-managed EC2 Oracle database to completely offload persistence management and security compliance from the Kubernetes cluster.</p>
 <ul>
-<li><strong>Requirement:</strong> Provision <strong>AWS RDS</strong> (PostgreSQL 12+ or Oracle).<br>
+<li><strong>Requirement:</strong> Oracle Database 19c or 23ai.<br>
 </li>
-<li><strong>Configuration:</strong> Ensure the database is accessible from the EKS Node Security Group.<br>
+<li><strong>Configuration:</strong> Ensure the database is accessible from the EKS Node Security Group (port <strong>1521</strong>).<br>
 </li>
-<li><strong>Credentials:</strong> Obtain the Endpoint URL, Port, Database Name, Username, and Password.</li>
+<li><strong>Credentials:</strong> Obtain the Endpoint URL, Port, <strong>Oracle Service Name</strong> (preferred over SID), Username, and Password.</li>
 </ul>
-<p><strong>Option B: Compliant Internal Container (Pilot/PoC Alternative)</strong> For non-production pilot environments, the client may provide their own approved PostgreSQL container image to run within the same namespace.</p>
+<p><strong>Option B: Compliant Internal Container (Pilot/PoC Alternative)</strong> For non-production pilot environments, the you may provide their own approved PostgreSQL container image to run within the same namespace.</p>
 <ul>
 <li><strong>Requirement:</strong> The container image must be security-hardened and configured to run as a <strong>non-root user (UID &gt; 1001)</strong> to pass OPA checks.<br>
 </li>
