@@ -15,7 +15,7 @@ This section is currently a placeholder. Following the execution of the pilot ph
 
 *   **Security Validation:** [Pending] Confirm if OPA Gatekeeper successfully blocked non-compliant resources without impeding valid deployments.
 *   **Connectivity:** [Pending] Verify if the End-to-End TLS chain (User -> ALB -> Pod) functioned as expected with the self-signed internal certificates.
-*   **Performance:** [Pending] Observations regarding the startup time of ODM pods when connecting to AWS RDS compared to local/on-prem databases.
+*   **Performance:** [Pending] Observations regarding the startup time of ODM pods when connecting to Oracle compared to local/on-prem databases.
 
 ### Lessons Learned
 

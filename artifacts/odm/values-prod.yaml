@@ -29,10 +29,8 @@ internalDatabase:
     enabled: false # Disable internal DB
 
 externalDatabase:
-  type: "postgresql" # or "oracle"
-  serverName: "<RDS_ENDPOINT_ADDRESS>"
-  databaseName: "odm_db"
-  port: "5432"
+  type: "oracle" # or "postgresql"
+  url: "jdbc:oracle:thin:@//<ORACLE_SERVER_ADDRESS>:1521/freepdb1""
   # References the secret created in Prereqs section
   secretCredentials: "odm-db-secret"
 

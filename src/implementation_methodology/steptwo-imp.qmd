@@ -40,7 +40,7 @@ Select the configuration that matches your deployment phase.
 
 ## Option A: Production / Pilot (Target State)
 **Use Case:** Deployment into the EKS Pilot environment.  
-**Key Features:** External RDS Database, Image Digests, Strict Security Contexts.
+**Key Features:** External Oracle Database, Image Digests, Strict Security Contexts.
 
 Create a file named `values-prod.yaml`:
 
@@ -59,8 +59,8 @@ Standard OPA policies (`ingress-https-only`) often check if the `spec.tls` list 
 :::
 
 ## Option B: Lab Validation (Internal DB)
-**Use Case:** Sandbox testing where an External RDS is not available.  
-**Key Features:** Internal PostgreSQL (Accepts known OPA violation for DB only), Image Digests, Self-Signed Ingress.
+**Use Case:** Sandbox testing where an external database is not available.  
+**Key Features:** Internal PostgreSQL or Oracle (Accepts known OPA violation for DB only), Image Digests, Self-Signed Ingress.
 
 Create a file named `values-lab.yaml`:
 

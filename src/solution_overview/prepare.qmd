@@ -31,15 +31,15 @@ The standard containerized database included with the product requires privilege
 
 Please select **ONE** of the following compliant strategies for this deployment:
 
-**Option A: AWS RDS (Production Recommended)**
-Utilize a managed database service to completely offload persistence management and security compliance from the Kubernetes cluster.
+**Option A: External Oracle Database (Production Recommended)**
+Utilize a managed database service or self-managed EC2 Oracle database to completely offload persistence management and security compliance from the Kubernetes cluster.
 
-*   **Requirement:** Provision **AWS RDS** (PostgreSQL 12+ or Oracle).  
-*   **Configuration:** Ensure the database is accessible from the EKS Node Security Group.  
-*   **Credentials:** Obtain the Endpoint URL, Port, Database Name, Username, and Password.
+*   **Requirement:** Oracle Database 19c or 23ai.  
+*   **Configuration:** Ensure the database is accessible from the EKS Node Security Group (port **1521**).  
+*   **Credentials:** Obtain the Endpoint URL, Port, **Oracle Service Name** (preferred over SID), Username, and Password.
 
 **Option B: Compliant Internal Container (Pilot/PoC Alternative)**
-For non-production pilot environments, the client may provide their own approved PostgreSQL container image to run within the same namespace.
+For non-production pilot environments, the you may provide their own approved PostgreSQL container image to run within the same namespace.
 
 *   **Requirement:** The container image must be security-hardened and configured to run as a **non-root user (UID > 1001)** to pass OPA checks.  
 *   **Configuration:** The client is responsible for defining the deployment and storage resources for this custom database container.

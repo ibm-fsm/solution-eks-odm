@@ -20,15 +20,15 @@ kubectl create namespace odm-pilot
 kubectl config set-context --current --namespace=odm-pilot
 ```
 
-### 1.1 Database Provisioning (AWS RDS)
+### 1.1 Database Provisioning (Oracle)
 :::{.panel-tabset}
 
-## Option A: AWS RDS
-ODM requires a robust persistence layer. We utilize **AWS RDS for PostgreSQL** (v12+).
+## Option A: Oracle
+ODM requires a robust persistence layer. We utilize **Oracle on EC2** (19c or 23ai).
 
-1.  **Provision RDS:** Ensure the instance is deployed in private subnets reachable by the EKS cluster.
+1.  **Provision Oracle:** Ensure the instance is deployed in private subnets reachable by the EKS cluster.
 2.  **Configure Security Groups:**
-    *   **Inbound Rule:** Allow TCP/5432 from the EKS Cluster Security Group.
+    *   **Inbound Rule:** Allow TCP/1521 from the EKS Cluster Security Group.
     *   **Outbound Rule:** Allow return traffic.
 
 
@@ -200,15 +200,178 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
 The database host for the internal PostgreSQL deployment will be `postgres.postgres.svc.cluster.local` on port `5432`. Use this for configuring the ODM application connection string in the subsequent steps.
 :::
 
+## Option C: Lab (Oracle Free)
+
+Here are instructions to deploy **Oracle Database 23ai Free** into a dedicated `oracle` namespace in a k3s lab.
+
+1. **Create the Deployment Manifest**
+Create a file named **`oracle-lab.yaml`**.
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle
+  labels:
+    # Optional: Label to help with OPA exclusion if needed later
+    name: oracle
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oracle-data
+  namespace: oracle
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-db
+  namespace: oracle
+  labels:
+    app: oracle-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-db
+  template:
+    metadata:
+      labels:
+        app: oracle-db
+    spec:
+      # Oracle 23ai runs as UID 54321 by default
+      securityContext:
+        fsGroup: 54321
+        runAsUser: 54321
+        runAsGroup: 54321
+      containers:
+      - name: oracle
+        image: container-registry.oracle.com/database/free:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 1521
+        env:
+        # The password for SYS, SYSTEM, and PDBADMIN
+        - name: ORACLE_PWD
+          value: "StrongPassword123"
+        volumeMounts:
+        - name: oracle-data
+          mountPath: /opt/oracle/oradata
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        # Health check to ensure DB is open before ODM tries to connect
+        startupProbe:
+          exec:
+            command: ["/opt/oracle/checkDBStatus.sh"]
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          failureThreshold: 40 # Wait up to 10 mins for first boot
+      volumes:
+      - name: oracle-data
+        persistentVolumeClaim:
+          claimName: oracle-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-db
+  namespace: oracle
+spec:
+  selector:
+    app: oracle-db
+  ports:
+    - protocol: TCP
+      port: 1521
+      targetPort: 1521
+```
+
+2. **Deploy to K3s**
+
+Run the apply command:
+
+```bash
+kubectl apply -f oracle-lab.yaml
+```
+
+**Monitor the Startup:**
+Oracle takes a while (5-10 minutes) to initialize the database files on the first run. Watch the logs until you see `DATABASE IS READY TO USE!`.
+
+```bash
+kubectl logs -f -n oracle -l app=oracle-db
+```
+
+:::{.callout-note}
+### Database Connection Details: 
+The database connection url for the internal Oracle deployment will be `jdbc:oracle:thin:@//oracle-db.oracle.svc.cluster.local:1521/freepdb1`.
 :::
 
-
-
+:::
 
 ### 1.2 Schema & User Setup
 
 The ODM data source requires specific privileges to initialize the schema on the first startup. Connect to your RDS instance via a bastion host or temporary pod and execute the following SQL commands:
 
+:::{.panel-tabset}
+
+## Option A (Oracle)
+
+**A. (Lab ONLY) Log into the Container via SQL\*Plus:**
+We connect as `SYS` (Superuser) to the default Pluggable Database (`FREEPDB1`).
+
+```bash
+# Get the pod name
+export ORACLE_POD=$(kubectl get pod -n oracle -l app=oracle-db -o jsonpath="{.items[0].metadata.name}")
+
+# Exec into SQL*Plus
+# Note: Connection string is host:port/ServiceName
+kubectl exec -it -n oracle $ORACLE_POD -- sqlplus sys/StrongPassword123@//localhost:1521/FREEPDB1 as sysdba
+```
+
+**B. Run the Setup SQL:**
+Paste this block directly into the `SQL>` prompt:
+
+:::{.callout-note}
+### Username and password
+Replace `ODM_USER` and `StrongPassword123` with the username and password of your choice.
+:::
+
+```sql
+-- 1. Create User/Schema
+CREATE USER ODM_USER IDENTIFIED BY "StrongPassword123" DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;
+
+-- 2. Grant Schema Privileges
+GRANT CREATE SESSION TO ODM_USER;
+GRANT CREATE TABLE TO ODM_USER;
+GRANT CREATE VIEW TO ODM_USER;
+GRANT CREATE SEQUENCE TO ODM_USER;
+GRANT CREATE TRIGGER TO ODM_USER;
+
+-- 3. Grant XA Recovery Privileges (Required for ODM/Liberty)
+GRANT SELECT ON sys.dba_pending_transactions TO ODM_USER;
+GRANT SELECT ON sys.pending_trans$ TO ODM_USER;
+GRANT SELECT ON sys.dba_2pc_pending TO ODM_USER;
+GRANT EXECUTE ON sys.dbms_xa TO ODM_USER;
+
+-- 4. Verify
+SELECT username FROM dba_users WHERE username = 'ODM_USER';
+
+-- 5. Exit
+exit;
+```
+
+## Option B (Postgres)
 ```sql
 -- 1. Create the dedicated ODM user
 CREATE USER odm WITH PASSWORD 'StrongPassword123!';
@@ -223,6 +386,8 @@ GRANT ALL PRIVILEGES ON DATABASE odm_db TO odm;
 \c odm_db
 CREATE SCHEMA odm_rules AUTHORIZATION odm;
 ```
+
+:::
 
 ### 1.3 Internal TLS Certificate Generation
 
@@ -263,18 +428,19 @@ The ODM application requires a Kubernetes Secret to authenticate with the databa
 
 :::{.panel-tabset}
 
-## Option A: Production (External RDS)
-**Target:** Pilot / Production environment using AWS RDS.
+## Option A: Oracle (External)
+**Target:** Pilot environment using external Oracle.
 
-Create a secret containing the credentials for your external PostgreSQL instance.
+Create a secret containing the credentials for your external Oracle instance.
 
 ```bash
 kubectl create secret generic odm-db-secret \
   --namespace odm-pilot \
-  --from-literal=db-user=odm \
-  --from-literal=db-password='StrongPassword123!' \
-  --from-literal=db-name=odm_db \
-  --from-literal=db-server=postgres.cxxxxx.us-east-1.rds.amazonaws.com
+  --from-literal=db-user='ODM_USER' \
+  --from-literal=db-password='StrongPassword123' \
+  --from-literal=db-name=freepdb1 \
+  --from-literal=db-server=oracle.cxxxxx.us-east-1.rds.amazonaws.com
+# for lab Oracle use `oracle-db.oracle.svc.cluster.local` as db-server
 ```
 
 *Note: Ensure the secret name (`odm-db-secret`) matches the `secretCredentials` field in your `values-prod.yaml`.*

@@ -44,6 +44,11 @@ internalDatabase:
 #   port: "5432"
 #   # References the secret created in Prereqs section
 #   secretCredentials: "odm-db-secret"
+# externalDatabase:
+#   type: "oracle"
+#   url: "jdbc:oracle:thin:@//oracle-db.oracle.svc.cluster.local:1521/freepdb1"
+#   # References the secret created in Prereqs section
+#   secretCredentials: "odm-db-secret"
 
 # 5. Security Contexts
 customization:

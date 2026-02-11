@@ -11,7 +11,7 @@ This section details the reference architecture for the IBM ODM v9.5 deployment.
 The deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.
 
 *   **Compute:** Stateless Pods running on AWS EKS Worker Nodes.
-*   **Persistence:** External AWS RDS (PostgreSQL) for transactional data.
+*   **Persistence:** External Oracle for transactional data.
 *   **Artifacts:** Internal Trusted Registry (Artifactory) for container images.
 *   **Routing:** Ingress Controller handling TLS termination and routing to internal ClusterIP services.
 
@@ -62,7 +62,7 @@ graph LR
                 end
             end
 
-            Database[("AWS RDS PostgreSQL")]
+            Database[("Oracle")]
         end
     end
 
@@ -85,10 +85,10 @@ graph LR
     ALB -->|"HTTPS"| DSR
 
     %% Database Connectivity
-    DC -->|"JDBC/TCP 5432"| Database
-    DR -->|"JDBC/TCP 5432"| Database
-    DSC -->|"JDBC/TCP 5432"| Database
-    DSR -->|"JDBC/TCP 5432"| Database
+    DC -->|"JDBC/TCP 1521"| Database
+    DR -->|"JDBC/TCP 1521"| Database
+    DSC -->|"JDBC/TCP 1521"| Database
+    DSR -->|"JDBC/TCP 1521"| Database
 
     %% Image Pulls
     DC -.->|"Image Pull"| Registry
@@ -117,7 +117,7 @@ The solution validates the integration of the following specific software versio
 | **Platform** | AWS EKS (K8s 1.24+) | Container Orchestration Platform |
 | **Software** | IBM ODM 9.5.0.1 | Business Rule Management System |
 | **Helm Chart** | `ibm-odm-prod` 25.1.0 | Deployment Manager |
-| **Database** | PostgreSQL 12+ | External Persistence Layer (AWS RDS) |
+| **Database** | Oracle 19c or 23ai  | External Persistence Layer (AWS RDS or EC2) |
 | **Policy Engine** | OPA Gatekeeper | Security Governance & Admission Control |
 | **Ingress** | NGINX / AWS ALB | Traffic Routing & TLS Termination |
 
