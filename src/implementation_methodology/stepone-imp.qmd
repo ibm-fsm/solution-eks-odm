@@ -32,7 +32,7 @@ ODM requires a robust persistence layer. We utilize **Oracle on EC2** (19c or 23
     *   **Outbound Rule:** Allow return traffic.
 
 
-## Option B: Lab (PostgreSQL)
+## Option B: Lab Manual Deployment (PostgreSQL)
 Create PostgreSQL in a separate name space to similate a similar setup to a prod environment with AWS RDS.
 
 1.  **Create New Namespace (PostgreSQL)**
@@ -200,7 +200,9 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
 The database host for the internal PostgreSQL deployment will be `postgres.postgres.svc.cluster.local` on port `5432`. Use this for configuring the ODM application connection string in the subsequent steps.
 :::
 
-## Option C: Lab (Oracle Free)
+## Option C: Lab Jenkins Deployment (PostgreSQL)
+
+## Option D: Lab (Oracle Free)
 
 Here are instructions to deploy **Oracle Database 23ai Free** into a dedicated `oracle` namespace in a k3s lab.
 
