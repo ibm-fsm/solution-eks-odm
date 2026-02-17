@@ -858,7 +858,7 @@ ID: odm-db-credentials</div>
 <h3 class="anchored" data-anchor-id="create-image-pull-secret">1.5 Create Image Pull Secret</h3>
 <p>Kubernetes requires authentication credentials to pull container images. Depending on your environment constraints (Lab vs.&nbsp;Restricted Production), the source registry and credentials will differ.</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true" href="">Option A: Private Registry (Production/Restricted)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false" href="">Option B: IBM Registry (Standard Lab)</a></li></ul>
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true" href="">Option A: Private Registry (Production/Restricted)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false" href="">Option B: IBM Registry (Standard Lab)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-3" role="tab" aria-controls="tabset-4-3" aria-selected="false" href="">Option C: Lab Jenkins Deployment (PostgreSQL)</a></li></ul>
 <div class="tab-content">
 <div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
 <p><strong>Target Environment:</strong> Customer Pilot / Air-Gapped / OPA-Enforced</p>
@@ -884,6 +884,64 @@ ID: odm-db-credentials</div>
 <span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-password</span><span class="op">=&lt;</span>YOUR_IBM_ENTITLEMENT_KEY<span class="op">&gt;</span> <span class="dt">\</span></span>
 <span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--docker-email</span><span class="op">=</span>user@example.com <span class="dt">\</span></span>
 <span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">-n</span> odm-pilot</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="tabset-4-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-4-3-tab">
+<p>Inside your Jenkins Deployment, navigate to:</p>
+<p><strong>Manage Jenkins → Credentials → Global → Add Credentials</strong></p>
+<p>Fill in the fields below:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Kind</strong></td>
+<td>Secret Text</td>
+</tr>
+<tr class="even">
+<td><strong>Scope</strong></td>
+<td>Global</td>
+</tr>
+<tr class="odd">
+<td><strong>Secret</strong></td>
+<td><code>YOUR_IBM_ENTITLEMENT_KEY</code></td>
+</tr>
+<tr class="even">
+<td><strong>ID</strong></td>
+<td><code>icr-entitlement-key</code></td>
+</tr>
+</tbody>
+</table>
+<p>Click <strong>Create</strong>.</p>
+<p><strong>Add the following stage after the Deploy Postgres (Lab) stage</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode groovy code-with-copy"><code class="sourceCode groovy"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stage</span><span class="op">(</span><span class="st">'Create ICR Pull Secret'</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>  steps <span class="op">{</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>    script <span class="op">{</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">withCredentials</span><span class="op">([</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">string</span><span class="op">(</span>credentialsId<span class="op">:</span> <span class="st">'icr-entitlement-key'</span><span class="op">,</span> variable<span class="op">:</span> <span class="st">'ICR_KEY'</span><span class="op">)</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>      <span class="op">])</span> <span class="op">{</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">withKubeConfig</span><span class="op">(</span>credentialsId<span class="op">:</span> <span class="st">'k3s-kubeconfig'</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>          sh <span class="st">'''</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="st">echo "Creating docker-registry secret for cp.icr.io..."</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="st">NAMESPACE="default"</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="st">SECRET_NAME="icr-secret"</span></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a><span class="st">${KUBECTL} -n ${NAMESPACE} create secret docker-registry ${SECRET_NAME} </span><span class="er">\</span></span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a><span class="st">  --docker-server=cp.icr.io </span><span class="er">\</span></span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a><span class="st">  --docker-username=cp </span><span class="er">\</span></span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a><span class="st">  --docker-password=${ICR_KEY} </span><span class="er">\</span></span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a><span class="st">  --docker-email=dummy@example.com </span><span class="er">\</span></span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a><span class="st">  --dry-run=client -o yaml | ${KUBECTL} apply -f -</span></span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a><span class="st">'''</span></span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a>      <span class="op">}</span></span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </div>
