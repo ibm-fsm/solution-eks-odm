@@ -488,7 +488,7 @@ window.Quarto = {
 <span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
 <span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 <li><p><strong>Create New Namespace (PostgreSQL)</strong></p>
-<p>Add Stage to Jenkins file Under Check Cluster Stage</p>
+<p>Add Stage to Jenkins file under Check Cluster Stage</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode groovy code-with-copy"><code class="sourceCode groovy"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stage</span><span class="op">(</span><span class="st">'Create Namespace'</span><span class="op">)</span> <span class="op">{</span></span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  steps <span class="op">{</span></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    script <span class="op">{</span></span>
@@ -510,6 +510,7 @@ Password: admin123<br>
 ID: odm-db-credentials</div>
 <p>Select Create</p></li>
 <li><p><strong>Create Postgres ODM Secret in Jenkins</strong></p>
+<p>Add Stage to Jenkins file under Create Namespace</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode groovy code-with-copy"><code class="sourceCode groovy"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stage</span><span class="op">(</span><span class="st">'Deploy Postgres (Lab)'</span><span class="op">)</span> <span class="op">{</span></span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    steps <span class="op">{</span></span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>      script <span class="op">{</span></span>
