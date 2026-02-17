@@ -664,6 +664,55 @@ kubectl create secret docker-registry internal-registry-secret \
   --docker-email=user@example.com \
   -n odm-pilot
 ```
+
+## Option C: Lab Jenkins Deployment (PostgreSQL)
+
+Inside your Jenkins Deployment, navigate to:
+
+**Manage Jenkins → Credentials → Global → Add Credentials**
+
+Fill in the fields below:
+
+| Field | Value |
+|-------|-------|
+| **Kind** | Secret Text |
+| **Scope** | Global |
+| **Secret** | `YOUR_IBM_ENTITLEMENT_KEY` |
+| **ID** | `icr-entitlement-key` |
+
+Click **Create**.
+
+**Add the following stage after the Deploy Postgres (Lab) stage**
+
+```groovy
+stage('Create ICR Pull Secret') {
+  steps {
+    script {
+      withCredentials([
+        string(credentialsId: 'icr-entitlement-key', variable: 'ICR_KEY')
+      ]) {
+        withKubeConfig(credentialsId: 'k3s-kubeconfig') {
+          sh '''
+echo "Creating docker-registry secret for cp.icr.io..."
+
+NAMESPACE="default"
+SECRET_NAME="icr-secret"
+
+${KUBECTL} -n ${NAMESPACE} create secret docker-registry ${SECRET_NAME} \
+  --docker-server=cp.icr.io \
+  --docker-username=cp \
+  --docker-password=${ICR_KEY} \
+  --docker-email=dummy@example.com \
+  --dry-run=client -o yaml | ${KUBECTL} apply -f -
+'''
+        }
+      }
+    }
+  }
+}
+```
+
+
 :::
 
 :::{.callout-important}
