@@ -201,6 +201,35 @@ The database host for the internal PostgreSQL deployment will be `postgres.postg
 :::
 
 ## Option C: Lab Jenkins Deployment (PostgreSQL)
+1.  **Set up Environment Variables in Jenkins Pipeline**
+    Set KUBECTL, NAMESPACE, HELM_RELEASE, and HELM.
+    ```bash
+      environment {
+        KUBECTL = '/var/tmp/kubectl'
+        NAMESPACE = 'odm-jenkins'
+        HELM_RELEASE = 'odm-lab'
+        HELM    = '/var/tmp/helm'
+      }
+    ```
+2.  **Create New Namespace (PostgreSQL)**
+    From a node inside your cluster on Bastion (eg. [clouduser@my-k3s-server-0 ~])
+    
+    ```bash
+    stages {
+
+        stage('Check Cluster') {
+            steps {
+                script {
+                    sh "chmod u+x ${KUBECTL}"
+                    withKubeConfig(credentialsId: 'k3s-kubeconfig') {
+                        sh "${KUBECTL} get nodes"
+                    }
+                }
+            }
+        }
+    }
+    ```
+    **Note: **You can check namespaces with ```bash kubectl get ns```
 
 ## Option D: Lab (Oracle Free)
 
