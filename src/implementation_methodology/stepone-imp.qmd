@@ -20,7 +20,7 @@ kubectl create namespace odm-pilot
 kubectl config set-context --current --namespace=odm-pilot
 ```
 
-### 1.1 Database Provisioning (Oracle)
+### 1.1 Database Provisioning
 :::{.panel-tabset}
 
 ## Option A: Oracle
@@ -201,35 +201,134 @@ The database host for the internal PostgreSQL deployment will be `postgres.postg
 :::
 
 ## Option C: Lab Jenkins Deployment (PostgreSQL)
-1.  **Set up Environment Variables in Jenkins Pipeline**
-    Set KUBECTL, NAMESPACE, HELM_RELEASE, and HELM.
-    ```bash
-      environment {
-        KUBECTL = '/var/tmp/kubectl'
-        NAMESPACE = 'odm-jenkins'
-        HELM_RELEASE = 'odm-lab'
-        HELM    = '/var/tmp/helm'
-      }
-    ```
-2.  **Create New Namespace (PostgreSQL)**
-    From a node inside your cluster on Bastion (eg. [clouduser@my-k3s-server-0 ~])
+1.  **Set up Environment Variables & Check Cluster in Jenkins Pipeline**
     
-    ```bash
-    stages {
+    Set KUBECTL, NAMESPACE, HELM_RELEASE, and HELM.
 
-        stage('Check Cluster') {
-            steps {
-                script {
-                    sh "chmod u+x ${KUBECTL}"
-                    withKubeConfig(credentialsId: 'k3s-kubeconfig') {
-                        sh "${KUBECTL} get nodes"
-                    }
-                }
-            }
-        }
+    ```groovy
+    environment {
+      KUBECTL = '/var/tmp/kubectl'
+      NAMESPACE = 'odm-jenkins'
+      HELM_RELEASE = 'odm-lab'
+      HELM    = '/var/tmp/helm'
     }
     ```
-    **Note: **You can check namespaces with ```bash kubectl get ns```
+    Check Cluster Connection
+    
+    ```groovy
+    stages {
+
+      stage('Check Cluster') {
+        steps {
+          script {
+            sh "chmod u+x ${KUBECTL}"
+            withKubeConfig(credentialsId: 'k3s-kubeconfig') {
+              sh "${KUBECTL} get nodes"
+            }
+          }
+        }
+      }
+    }
+    ```
+
+2.  **Create New Namespace (PostgreSQL)**
+
+    Add Stage to Jenkins file Under Check Cluster Stage
+
+    ```groovy
+    stage('Create Namespace') {
+      steps {
+        script {
+          withKubeConfig(credentialsId: 'k3s-kubeconfig') {
+            sh """
+            ${KUBECTL} get namespace ${NAMESPACE} >/dev/null 2>&1 || \
+            ${KUBECTL} create namespace ${NAMESPACE}
+            """
+          }
+        }
+      }
+    }
+    ```
+
+3.  **Create Postgres ODM Secret in Jenkins**
+
+    Inside your Jenkins Deployment, go to Manage Jenkins$\rightarrow$Credentials$\rightarrow$Global$\rightarrow$Add Credentials
+
+    | Kind: Username with password
+    | Scope: Global
+    | Username: admin
+    | Password: admin123
+    | ID: odm-db-credentials
+
+    Select Create
+
+4.  **Create Postgres ODM Secret in Jenkins**
+
+    ```groovy
+      stage('Deploy Postgres (Lab)') {
+        steps {
+          script {
+            withCredentials([usernamePassword(
+              credentialsId: 'odm-db-credentials',
+                usernameVariable: 'DB_USER',
+                  passwordVariable: 'DB_PASS'
+            )]) {
+              withKubeConfig(credentialsId: 'k3s-kubeconfig') {
+                sh """
+    echo "Creating Postgres secret..."
+
+    ${KUBECTL} -n ${NAMESPACE} create secret generic postgres-secret \
+      --from-literal=POSTGRES_DB=odmdb \
+      --from-literal=POSTGRES_USER=${DB_USER} \
+      --from-literal=POSTGRES_PASSWORD=${DB_PASS} \
+      --dry-run=client -o yaml | ${KUBECTL} apply -f -
+
+    echo "Deploying Postgres securely..."
+
+    cat <<EOF | ${KUBECTL} -n ${NAMESPACE} apply -f -
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: odm-postgres
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: odm-postgres
+      template:
+        metadata:
+          labels:
+            app: odm-postgres
+        spec:
+          containers:
+          - name: postgres
+            image: postgres:13
+            envFrom:
+            - secretRef:
+                name: postgres-secret
+            ports:
+            - containerPort: 5432
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: odm-postgres
+    spec:
+      selector:
+        app: odm-postgres
+      ports:
+      - port: 5432
+        targetPort: 5432
+    EOF
+
+    ${KUBECTL} -n ${NAMESPACE} rollout status deployment/odm-postgres --timeout=180s
+    """
+            }
+          }
+        }
+      }
+    }
+    ```
 
 ## Option D: Lab (Oracle Free)
 
