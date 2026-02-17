@@ -233,7 +233,7 @@ The database host for the internal PostgreSQL deployment will be `postgres.postg
 
 2.  **Create New Namespace (PostgreSQL)**
 
-    Add Stage to Jenkins file Under Check Cluster Stage
+    Add Stage to Jenkins file under Check Cluster Stage
 
     ```groovy
     stage('Create Namespace') {
@@ -263,6 +263,8 @@ The database host for the internal PostgreSQL deployment will be `postgres.postg
     Select Create
 
 4.  **Create Postgres ODM Secret in Jenkins**
+
+    Add Stage to Jenkins file under Create Namespace
 
     ```groovy
       stage('Deploy Postgres (Lab)') {
