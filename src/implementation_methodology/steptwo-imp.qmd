@@ -10,6 +10,10 @@ In this final phase, we deploy the ODM workload. The configuration must bridge t
 
 ### 2.1 Configure Helm Repository
 
+:::{.panel-tabset}
+
+## Option A: Manual CLI
+
 Before generating the deployment manifests, add the IBM Helm repository to your local client. This allows Helm to locate the `ibm-odm-prod` chart.
 
 ```bash
@@ -22,6 +26,44 @@ helm repo update
 # 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
 helm search repo ibm-odm-prod
 ```
+
+## Option B: Jenkins Deployment
+
+Add the following stage after the secret creation stages:
+
+```groovy
+stage('Setup Helm') {
+    steps {
+        sh '''
+        set -e
+
+        echo "Checking if Helm is already installed..."
+
+        if [ ! -f "${HELM}" ]; then
+            echo "Helm not found. Installing Helm..."
+
+            curl -fsSL https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz -o helm.tar.gz
+            tar -xzf helm.tar.gz
+            mv linux-amd64/helm ${HELM}
+            chmod +x ${HELM}
+
+            echo "Helm installed successfully."
+        else
+            echo "Helm already installed. Skipping download."
+        fi
+
+        echo "Helm version:"
+        ${HELM} version
+
+        echo "Adding/Updating IBM Helm repo..."
+        ${HELM} repo add ibm-helm https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm || true
+        ${HELM} repo update
+        '''
+    }
+}
+```
+
+:::
 
 :::{.callout-tip}
 ### Reference Documentation
