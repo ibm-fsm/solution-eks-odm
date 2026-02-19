@@ -1,0 +1,50 @@
+license: true
+usersPassword: "__ODM_ADMIN_PASS__"
+
+image:
+  pullSecrets:
+    - icr-secret
+  pullPolicy: Always
+
+decisionCenter:
+  tagOrDigest: "__DC_DIGEST__"
+
+decisionRunner:
+  tagOrDigest: "__DR_DIGEST__"
+
+decisionServerConsole:
+  tagOrDigest: "__DSC_DIGEST__"
+
+decisionServerRuntime:
+  tagOrDigest: "__DSR_DIGEST__"
+
+externalDatabase:
+  type: "postgresql"
+  serverName: "odm-postgres.__NAMESPACE__.svc.cluster.local"
+  databaseName: "odm_db"
+  port: "5432"
+  secretCredentials: "odm-db-secret"
+
+customization:
+  runAsUser: 1001
+  seccompProfile:
+    type: RuntimeDefault
+  labels:
+    applicationid: "ODM"
+
+service:
+  type: ClusterIP
+  enableRoute: false
+  hostname: "__ODM_HOSTNAME__"
+
+  ingress:
+    enabled: true
+    host: "__ODM_HOSTNAME__"
+    tlsSecretRef: "__ODM_TLS_SECRET__"
+    tlsHosts:
+      - "__ODM_HOSTNAME__"
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      kubernetes.io/ingress.allow-http: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
