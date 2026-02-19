@@ -10,10 +10,6 @@ In this final phase, we deploy the ODM workload. The configuration must bridge t
 
 ### 2.1 Configure Helm Repository
 
-:::{.panel-tabset}
-
-## Option A: Manual CLI
-
 Before generating the deployment manifests, add the IBM Helm repository to your local client. This allows Helm to locate the `ibm-odm-prod` chart.
 
 ```bash
@@ -26,44 +22,6 @@ helm repo update
 # 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
 helm search repo ibm-odm-prod
 ```
-
-## Option B: Jenkins Deployment
-
-Add the following stage after the secret creation stages:
-
-```groovy
-stage('Setup Helm') {
-    steps {
-        sh '''
-        set -e
-
-        echo "Checking if Helm is already installed..."
-
-        if [ ! -f "${HELM}" ]; then
-            echo "Helm not found. Installing Helm..."
-
-            curl -fsSL https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz -o helm.tar.gz
-            tar -xzf helm.tar.gz
-            mv linux-amd64/helm ${HELM}
-            chmod +x ${HELM}
-
-            echo "Helm installed successfully."
-        else
-            echo "Helm already installed. Skipping download."
-        fi
-
-        echo "Helm version:"
-        ${HELM} version
-
-        echo "Adding/Updating IBM Helm repo..."
-        ${HELM} repo add ibm-helm https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm || true
-        ${HELM} repo update
-        '''
-    }
-}
-```
-
-:::
 
 :::{.callout-tip}
 ### Reference Documentation
@@ -110,6 +68,7 @@ Create a file named `values-lab.yaml`:
 
 ```{.yaml include="../../artifacts/odm/values-lab.yaml"}
 ```
+
 
 :::
 
@@ -216,6 +175,9 @@ sed -i '/container.apparmor.security.beta.kubernetes.io/d' *.yaml
 
 ### 2.4 Deploying the Workload
 
+:::{.panel-tabset}
+## Option A: Manual Deployment
+
 Run the build pipeline to generate the patched manifests and apply them to the cluster.
 
 ```bash
@@ -229,6 +191,79 @@ helm template odm-lab ibm-helm/ibm-odm-prod \
 # 2. Apply Patches & Deploy
 kubectl -n odm-pilot apply -k .
 ```
+
+
+## Option B: Jenkins Deployment (Lab)
+
+Skip the above instructions if deploying via Jenkins
+
+1.  **Install Config File Provider Plugin**
+    a. Go to Manage Jenkins → Plugins → Available Plugins
+    b. Search for Config File Provider Plugin and select download
+    c. Once it is installed, restart Jenkins
+2.  **Add the values.yaml file into Jenkins**
+    a. Go to Manage Jenkins → Managed Files → Add new Config
+    b. Select Custom file and set the ID to *odm-values-lab*
+    c. Select Next
+    d. Set the Name to *odm-values-lab*
+    e. Paste the following into Content then press Submit
+
+[Download `jenkins-values.yaml`](../../artifacts/odm/jenkins-values.yaml){.btn .btn-outline-primary role="button"}
+
+```{.yaml include="../../artifacts/odm/jenkins-values.yaml"}
+```
+
+3.  **Paste Code into Jenkins Pipeline**
+    a. paste the following code into the Jenkins pipeline
+
+[Download `jenkins-lab.groovy`](../../artifacts/odm/jenkins-lab.groovy){.btn .btn-outline-primary role="button"}
+
+```{.groovy include="../../artifacts/odm/jenkins-lab.groovy"}
+```
+4. **Add credentials**
+  a. go to Manage Jenkins → Credentials → Global → Add Credentials
+  b. Add the icr or ibm entitlement key
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: user_entitlement_key
+      - ID: icr-entitlement-key
+  c. Add the DB (postgres) login credentials
+      - Kind: Username/Password
+      - Scope: Global
+      - Username: odm
+      - Password: odm123
+      - ID: odm-db-credentials
+  d. Add the odm login credentials for helm deployment
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: odmAdminPassword123!
+      - ID: odm-admin-pass
+  e. Add the Decision Center Digest credentials
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: sha256:6a0eb1f874ba52918bcd8e2c3acde2d3e428685cad7e5996e0c1227e88d3de0b
+      - ID: dc-digest
+  f. Add the Decision Runner Digest credentials
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: sha256:6f0643013e18d848199a73f38c5f6f854c1226ae7702c8294b835b74aa561782
+      - ID: dr-digest
+  g. Add the Decision Server Console Digest credentials
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: sha256:f4c778a388535330ce5d5612d6325d5522cedb70f0cb7895fa7f015a38e5bb9c
+      - ID: dsc-digest
+  h. Add the Decision Server Runtime Digest credentials
+      - Kind: Secret Text
+      - Scope: Global
+      - Secret: sha256:ab03e4e35923c674a090456f6869963a6d29e8f94117061ff11d383cc8c9369a
+      - ID: dsr-digest
+
+5. **Run the Jenkins Pipeline**
+
+
+
+:::
 
 ::: {.callout-tip}
 ### Verification
