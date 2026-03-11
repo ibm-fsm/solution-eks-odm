@@ -96,6 +96,8 @@ helm registry login artifactory.gym.lan:8443 --insecure
 # 2. Push the chart to Artifactory
 helm push ibm-odm-prod-25.1.0.tgz oci://artifactory.gym.lan:8443/docker-local --insecure-skip-tls-verify
 
+# 3. Pull the chart
+helm pull ibm-helm/ibm-odm-prod --version 25.1.0
 ```
 
 ### 4. Cluster Configuration
