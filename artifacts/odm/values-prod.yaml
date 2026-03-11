@@ -76,7 +76,7 @@ service:
       # Reference your ACM Certificate ARN here
       alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"
       # Listen on HTTPS (443)
-      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      #alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
       
       # 4. Backend Security (Re-encryption)
       # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)

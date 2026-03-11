@@ -39,10 +39,10 @@ Utilize a managed database service or self-managed EC2 Oracle database to comple
 *   **Credentials:** Obtain the Endpoint URL, Port, **Oracle Service Name** (preferred over SID), Username, and Password.
 
 **Option B: Compliant Internal Container (Pilot/PoC Alternative)**
-For non-production pilot environments, the you may provide their own approved PostgreSQL container image to run within the same namespace.
+For non-production pilot environments, you may provide your own approved PostgreSQL container image to run within the same namespace.
 
 *   **Requirement:** The container image must be security-hardened and configured to run as a **non-root user (UID > 1001)** to pass OPA checks.  
-*   **Configuration:** The client is responsible for defining the deployment and storage resources for this custom database container.
+*   **Configuration:** You are responsible for defining the deployment and storage resources for this custom database container.
 
 ### 3. Supply Chain (Image Mirroring)
 The target environment prohibits direct access to public registries (`cp.icr.io`). All container images must be staged in the client's internal trusted registry (e.g., Artifactory).

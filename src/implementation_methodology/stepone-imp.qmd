@@ -32,8 +32,8 @@ ODM requires a robust persistence layer. We utilize **Oracle on EC2** (19c or 23
     *   **Outbound Rule:** Allow return traffic.
 
 
-## Option B: Lab Manual Deployment (PostgreSQL)
-Create PostgreSQL in a separate name space to similate a similar setup to a prod environment with AWS RDS.
+## Option B: Postgres (Container)
+Create PostgreSQL in a separate namespace to similate a similar setup to a prod environment with AWS RDS.
 
 1.  **Create New Namespace (PostgreSQL)**
     From a node inside your cluster on Bastion (eg. [clouduser@my-k3s-server-0 ~])
@@ -200,7 +200,8 @@ Create PostgreSQL in a separate name space to similate a similar setup to a prod
 The database host for the internal PostgreSQL deployment will be `postgres.postgres.svc.cluster.local` on port `5432`. Use this for configuring the ODM application connection string in the subsequent steps.
 :::
 
-## Option C: Lab Jenkins Deployment (PostgreSQL)
+## Option C: Postgres (Jenkins)
+
 1.  **Set up Environment Variables & Check Cluster in Jenkins Pipeline**
     
     Set KUBECTL, NAMESPACE, HELM_RELEASE, and HELM.
@@ -332,7 +333,7 @@ The database host for the internal PostgreSQL deployment will be `postgres.postg
     }
     ```
 
-## Option D: Lab (Oracle Free)
+## Option D: Oracle Free (Lab)
 
 Here are instructions to deploy **Oracle Database 23ai Free** into a dedicated `oracle` namespace in a k3s lab.
 
@@ -457,9 +458,9 @@ The ODM data source requires specific privileges to initialize the schema on the
 
 :::{.panel-tabset}
 
-## Option A (Oracle)
+## Option A: Oracle
 
-**A. (Lab ONLY) Log into the Container via SQL\*Plus:**
+**1. (Lab ONLY) Log into the Container via SQL\*Plus:**
 We connect as `SYS` (Superuser) to the default Pluggable Database (`FREEPDB1`).
 
 ```bash
@@ -471,7 +472,7 @@ export ORACLE_POD=$(kubectl get pod -n oracle -l app=oracle-db -o jsonpath="{.it
 kubectl exec -it -n oracle $ORACLE_POD -- sqlplus sys/StrongPassword123@//localhost:1521/FREEPDB1 as sysdba
 ```
 
-**B. Run the Setup SQL:**
+**2. Run the Setup SQL:**
 Paste this block directly into the `SQL>` prompt:
 
 :::{.callout-note}
@@ -503,7 +504,7 @@ SELECT username FROM dba_users WHERE username = 'ODM_USER';
 exit;
 ```
 
-## Option B (Postgres)
+## Option B: Postgres
 ```sql
 -- 1. Create the dedicated ODM user
 CREATE USER odm WITH PASSWORD 'StrongPassword123!';
@@ -532,19 +533,27 @@ For this document, we will generate a self-signed certificate using OpenSSL.
 :::{.callout-note}
 ### Determining the Certificate Subject (CN)
 
-The Common Name (`/CN`) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser.
+The Common Name (`/CN`) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser. Choose the pattern that fits your deployment phase:
 
-*   **In the Lab:** We use the pattern `odm.<proxy>` (e.g., `/CN=odm.my-haproxy.gym.lan/O=Lab/C=US`). This ensures the browser accepts the certificate when traffic is routed through your lab's load balancer.
-*   **In Production (AWS ALB):** Use the **Route53 CNAME** or Alias record created for the application (e.g., `/CN=odm.internal.corp`).
+*   **In a Pilot (Dummy Hostname):** To bypass corporate DNS/Route53 ticket queues for a quick PoC, use a dummy hostname (e.g., `/CN=odm.local.test`). You will later route traffic to the AWS ALB by updating your local machine's `hosts` file.
+*   **In Production (AWS ALB with DNS):** Use the **Route53 CNAME** or Alias record created for the application (e.g., `/CN=odm.internal.corp`).
     *   *Important:* Do **not** use the raw AWS ALB hostname (e.g., `*.elb.amazonaws.com`) as the CN. Browser security policies will reject the certificate if it identifies the load balancer hardware rather than the application service name.
+*   **In a Local Lab:** We use the pattern `odm.<proxy>` (e.g., `/CN=odm.my-haproxy.gym.lan`). This ensures the browser accepts the certificate when traffic is routed through your lab's local load balancer.
+:::
+
+:::{.callout-warning}
+### Local Admin Privileges Required for Dummy Hostnames
+If you choose the **Pilot (Dummy Hostname)** route, anyone who needs to access the ODM web interface must map the dummy hostname to the ALB's IP addresses in their local `/etc/hosts` (Mac/Linux) or `C:\Windows\System32\drivers\etc\hosts` (Windows) file. 
+
+**Modifying this file requires local Administrator or root privileges.** If the operations team or stakeholders testing the Pilot do not have admin rights on their corporate workstations, the dummy hostname workaround will fail for them. In that scenario, you *must* provision a real Route53/Corporate DNS record.
 :::
 
 ```bash
-# 1. Generate a self-signed certificate and private key
+# 1. Generate a self-signed certificate and private key (Pilot Example)
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout odm-lab.key \
   -out odm-lab.crt \
-  -subj "/CN=odm.internal.corp/O=MyCorp/C=US"
+  -subj "/CN=odm.local.test/O=Pilot/C=US"
 
 # 2. Verify the content
 ls -l odm-lab.key odm-lab.crt
@@ -608,11 +617,18 @@ kubectl create secret generic odm-db-secret \
 
 :::
 
-**TLS Keystore Secret:**
-This will be referenced by the Ingress resource (`tlsSecretRef`) to enable HTTPS.
+**Ingress TLS Secret (Non-AWS / Lab Environments Only):**
+If you are deploying in a local lab or using an in-cluster Ingress controller like NGINX, this secret will be referenced by the Ingress resource (`tlsSecretRef`) to enable HTTPS.
+
+:::{.callout-important}
+### AWS ALB Environments: Skip this step
+If you are deploying to AWS EKS and using the AWS Application Load Balancer (ALB), **do not create this Kubernetes secret**. AWS ALBs terminate TLS using certificates stored securely in **AWS Certificate Manager (ACM)**, not Kubernetes secrets. 
+
+Instructions for importing your certificate into ACM and passing the Certificate ARN to the Helm chart are provided in the Helm Configuration section later in this guide.
+:::
 
 ```bash
-# Create a standard Kubernetes TLS secret type
+# Create a standard Kubernetes TLS secret type (For NGINX / Local Labs)
 kubectl create secret tls odm-tls-secret \
   --namespace odm-pilot \
   --key odm-lab.key \
@@ -631,7 +647,7 @@ Kubernetes requires authentication credentials to pull container images. Dependi
 :::{.panel-tabset}
 
 ## Option A: Private Registry (Production/Restricted)
-**Target Environment:** Customer Pilot / Air-Gapped / OPA-Enforced
+**Target Environment:** Pilot / Air-Gapped / OPA-Enforced
 
 In strict environments where public internet access is blocked or OPA forbids public registries, you must pull from the internal location where you mirrored the images (e.g., Artifactory).
 
