@@ -10,6 +10,9 @@ In this final phase, we deploy the ODM workload. The configuration must bridge t
 
 ### 2.1 Configure Helm Repository
 
+:::{.panel-tabset}
+## Option A: Retrieve Chart from GitHub
+
 Before generating the deployment manifests, add the IBM Helm repository to your local client. This allows Helm to locate the `ibm-odm-prod` chart.
 
 ```bash
@@ -22,6 +25,25 @@ helm repo update
 # 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
 helm search repo ibm-odm-prod
 ```
+## Option B: Retrieve chart from OCI/Artifactory
+
+:::{.callout-tip}
+### Chart Available in Artifactory
+In order to complete these commands, the chart must be uploaded to Artifactory. For instructions to upload the chart into Artifactory, refer to Solution Overview/Prepare.
+:::
+
+```bash
+# 1. Log into Artifactory
+helm registry login artifactory.gym.lan:8443 --insecure
+
+# 2. Pull down the chart from Artifactory
+helm template odm-lab oci://artifactory.gym.lan:8443/<Artifactory_Repo_Name>/ibm-odm-prod /
+    --version 25.1.0 /
+    --insecure-skip-tls-verify /
+    --kube-version 1.28.0 /
+    -f values-lab.yaml > odm-raw.yaml
+```
+:::
 
 :::{.callout-tip}
 ### Reference Documentation
