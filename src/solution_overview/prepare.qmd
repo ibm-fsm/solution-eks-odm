@@ -74,6 +74,30 @@ If the organization utilizes a centralized image ingestion process, please confi
 In the absence of an automated ingestion pipeline, we recommend using the **OpenShift CLI (`oc`)** or **Skopeo**. These tools efficiently copy multi-architecture manifest lists between registries without requiring intermediate disk storage or Docker daemons.
 :::
 
+#### Retrieve Chart and Upload to Artifactory
+
+```bash
+# 1. Add the IBM Helm Repo
+helm repo add ibm-helm https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm
+
+# 2. Update to ensure you have the latest chart versions
+helm repo update
+
+# 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
+helm search repo ibm-odm-prod
+```
+
+#### Push Chart to Artifactory
+```bash
+# 1. Login to Artifactory
+helm registry login artifactory.gym.lan:8443 --insecure
+# Enter artifactory username and password when prompted
+
+# 2. Push the chart to Artifactory
+helm push ibm-odm-prod-25.1.0.tgz oci://artifactory.gym.lan:8443/docker-local --insecure-skip-tls-verify
+
+```
+
 ### 4. Cluster Configuration
 The Kubernetes namespace must be prepared with the necessary secrets and networking definitions.
 
