@@ -11,7 +11,7 @@ patches:
       kind: Deployment
       name: "odm-lab-odm-.*" # "odm-pilot-odm-.*"
 
-  # Specific AppArmor Patches (One per file)
+  # Specific patches (One per file)
   - path: security-patch-dc.yaml
   - path: security-patch-runner.yaml
   - path: security-patch-console.yaml
