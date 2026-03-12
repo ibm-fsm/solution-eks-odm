@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-03-11">
+<meta name="dcterms.date" content="2026-03-12">
 
 <title>ODM Deployment &amp; Traffic Exposure – ODM on EKS</title>
 <style>
@@ -276,7 +276,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 11, 2026</p>
+      <p class="date">March 12, 2026</p>
     </div>
   </div>
   
@@ -321,15 +321,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>In order to complete these commands, the chart must be uploaded to Artifactory. For instructions to upload the chart into Artifactory, refer to Solution Overview/Prepare.</p>
 </div>
 </div>
+<p>Unlike classic Helm repositories, OCI registries do not use <code>helm repo add</code>. Instead, you authenticate with the registry and reference the <code>oci://</code> URL directly.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Log into Artifactory</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> registry login artifactory.gym.lan:8443 <span class="at">--insecure</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Pull down the chart from Artifactory</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> template odm-lab oci://artifactory.gym.lan:8443/<span class="op">&lt;</span>Artifactory_Repo_Name<span class="op">&gt;</span>/ibm-odm-prod /</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="ex">--version</span> 25.1.0 /</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="ex">--insecure-skip-tls-verify</span> /</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="ex">--kube-version</span> 1.28.0 /</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="ex">-f</span> values-lab.yaml <span class="op">&gt;</span> odm-raw.yaml</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Verify access by pulling the chart locally </span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">helm</span> pull oci://artifactory.gym.lan:8443/<span class="op">&lt;</span>Artifactory_Repo_Name<span class="op">&gt;</span>/ibm-odm-prod <span class="dt">\</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--version</span> 25.1.0 <span class="dt">\</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--insecure-skip-tls-verify</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </div>
@@ -417,39 +416,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">ingress</span><span class="kw">:</span></span>
 <span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
 <span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">host</span><span class="kw">:</span><span class="at"> </span><span class="st">"odm.internal.corp"</span></span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="at">    </span></span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="co">    # </span><span class="al">NOTE</span><span class="co">: When using AWS ACM, we do not use k8s TLS secrets. </span></span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="co">    # However, if OPA strictness requires a TLS block to be present in the YAML, </span></span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="co">    # leave these empty or define a dummy secret. </span></span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="co">    # Usually, the 'allow-http: false' annotation satisfies OPA.</span></span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsSecretRef</span><span class="kw">:</span><span class="at"> </span><span class="st">""</span><span class="at"> </span></span>
-<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsHosts</span><span class="kw">:</span><span class="at"> </span><span class="kw">[]</span></span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">annotations</span><span class="kw">:</span></span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="co">      # 1. Controller Class</span></span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.class</span><span class="kw">:</span><span class="at"> alb</span></span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="co">      # 2. Network Configuration</span></span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/scheme</span><span class="kw">:</span><span class="at"> internet-facing</span></span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="co">      # 'ip' mode routes traffic directly to Pod IPs (bypassing NodePort)</span></span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="co">      # This is faster and required for some sticky session configurations</span></span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/target-type</span><span class="kw">:</span><span class="at"> ip</span></span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="co">      # 3. Encryption &amp; Certificates (AWS ACM)</span></span>
-<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="co">      # Reference your ACM Certificate ARN here</span></span>
-<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/certificate-arn</span><span class="kw">:</span><span class="at"> </span><span class="st">"arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"</span></span>
-<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="co">      # Listen on HTTPS (443)</span></span>
-<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/listen-ports</span><span class="kw">:</span><span class="at"> </span><span class="st">'[{"HTTPS":443}]'</span></span>
-<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
-<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="co">      # 4. Backend Security (Re-encryption)</span></span>
-<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="co">      # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)</span></span>
-<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/backend-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span>
-<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="co">      # Ensure Health Checks also use HTTPS so pods don't fail readiness</span></span>
-<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/healthcheck-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span>
-<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
-<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="co">      # 5. OPA Compliance</span></span>
-<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a><span class="co">      # Explicitly disables HTTP to satisfy 'ingress-https-only' policy</span></span>
-<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.allow-http</span><span class="kw">:</span><span class="at"> </span><span class="st">"false"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> alb</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a><span class="at">    </span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="co">    # </span><span class="al">NOTE</span><span class="co">: When using AWS ACM, we do not use k8s TLS secrets. </span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a><span class="co">    # However, if OPA strictness requires a TLS block to be present in the YAML, </span></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="co">    # leave these empty or define a dummy secret. </span></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a><span class="co">    # Usually, the 'allow-http: false' annotation satisfies OPA.</span></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsSecretRef</span><span class="kw">:</span><span class="at"> </span><span class="st">""</span><span class="at"> </span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">tlsHosts</span><span class="kw">:</span><span class="at"> </span><span class="kw">[]</span></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">annotations</span><span class="kw">:</span></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a><span class="co">      # 1. Controller Class</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.class</span><span class="kw">:</span><span class="at"> alb</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a><span class="co">      # 2. Network Configuration</span></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/scheme</span><span class="kw">:</span><span class="at"> internet-facing</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="co">      # 'ip' mode routes traffic directly to Pod IPs (bypassing NodePort)</span></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="co">      # This is faster and required for some sticky session configurations</span></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/target-type</span><span class="kw">:</span><span class="at"> ip</span></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="co">      # 3. Encryption &amp; Certificates (AWS ACM)</span></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a><span class="co">      # Reference your ACM Certificate ARN here</span></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/certificate-arn</span><span class="kw">:</span><span class="at"> </span><span class="st">"arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"</span></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="co">      # 4. Backend Security (Re-encryption)</span></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="co">      # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)</span></span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/backend-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="co">      # Ensure Health Checks also use HTTPS so pods don't fail readiness</span></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">alb.ingress.kubernetes.io/healthcheck-protocol</span><span class="kw">:</span><span class="at"> </span><span class="st">"HTTPS"</span></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a><span class="at">      </span></span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a><span class="co">      # 5. OPA Compliance</span></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="co">      # Explicitly disables HTTP to satisfy 'ingress-https-only' policy</span></span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">kubernetes.io/ingress.allow-http</span><span class="kw">:</span><span class="at"> </span><span class="st">"false"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -555,8 +553,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="kustomize-workarounds" class="level3">
 <h3 class="anchored" data-anchor-id="kustomize-workarounds">2.3. Kustomize Workarounds</h3>
-<p>While ODM v9.5 resolves many security configurations natively, critical gaps remain that cannot be fixed via <code>values.yaml</code> alone:<br>
-1. <strong>Group ID Enforcement:</strong> The Helm chart templates explicitly define <code>runAsUser</code> but ignore <code>runAsGroup</code> and <code>supplementalGroups</code>. This causes the pods to fail the <code>psp-pods-allowed-user-ranges</code> policy. We inject these fields (<code>1001</code>) into every Deployment. 2. <strong>Test Job Compliance:</strong> The <code>odm-test-connection</code> Job generated by the chart is unconfigurable via <code>values.yaml</code>. It lacks Resource Limits, Security Contexts, and Image Digests. We patch this job to add all missing security fields. 3. <strong>Image Pull Policy (Init Containers):</strong> The OPA policy requires <code>imagePullPolicy: Always</code> for <em>all</em> containers. The Helm chart defaults Init Containers to <code>IfNotPresent</code> with no option to override. We use a <strong>JSON Patch</strong> to forcibly update the pull policy on every container in the manifest.</p>
+<p>While ODM v9.5 resolves many security configurations natively, critical gaps remain that cannot be fixed via <code>values.yaml</code> alone:</p>
+<ol type="1">
+<li><strong>Group ID Enforcement:</strong> The Helm chart templates explicitly define <code>runAsUser</code> but ignore <code>runAsGroup</code> and <code>supplementalGroups</code>. This causes the pods to fail the <code>psp-pods-allowed-user-ranges</code> policy. We inject these fields (<code>1001</code>) into every Deployment.</li>
+<li><strong>Test Job Compliance:</strong> The <code>odm-test-connection</code> Job generated by the chart is unconfigurable via <code>values.yaml</code>. It lacks Resource Limits, Security Contexts, and Image Digests. We patch this job to add all missing security fields.</li>
+<li><strong>Image Pull Policy (Init Containers):</strong> The OPA policy requires <code>imagePullPolicy: Always</code> for <em>all</em> containers. The Helm chart defaults Init Containers to <code>IfNotPresent</code> with no option to override. We use a <strong>JSON Patch</strong> to forcibly update the pull policy on every container in the manifest.</li>
+</ol>
 <section id="create-patch-files" class="level4">
 <h4 class="anchored" data-anchor-id="create-patch-files">Create Patch Files</h4>
 <p>Define the following files in your overlay directory. Note that we utilize distinct patch files for each component to ensure explicit targeting and avoid accidental modification of infrastructure components (such as the database).</p>

@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-03-11">
+<meta name="dcterms.date" content="2026-03-12">
 
 <title>Phase 1: Foundation &amp; Prerequisite Configuration – ODM on EKS</title>
 <style>
@@ -307,7 +307,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 11, 2026</p>
+      <p class="date">March 12, 2026</p>
     </div>
   </div>
   
@@ -334,7 +334,7 @@ window.Quarto = {
 <section id="database-provisioning" class="level3">
 <h3 class="anchored" data-anchor-id="database-provisioning">1.1 Database Provisioning</h3>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Option A: Oracle</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Option B: Lab Manual Deployment (PostgreSQL)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false" href="">Option C: Lab Jenkins Deployment (PostgreSQL)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-4" role="tab" aria-controls="tabset-1-4" aria-selected="false" href="">Option D: Lab (Oracle Free)</a></li></ul>
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Option A: Oracle</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Option B: Postgres (Container)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false" href="">Option C: Postgres (Jenkins)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-4" role="tab" aria-controls="tabset-1-4" aria-selected="false" href="">Option D: Oracle Free (Lab)</a></li></ul>
 <div class="tab-content">
 <div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
 <p>ODM requires a robust persistence layer. We utilize <strong>Oracle on EC2</strong> (19c or 23ai).</p>
@@ -348,7 +348,7 @@ window.Quarto = {
 </ol>
 </div>
 <div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
-<p>Create PostgreSQL in a separate name space to similate a similar setup to a prod environment with AWS RDS.</p>
+<p>Create PostgreSQL in a separate namespace to similate a similar setup to a prod environment with AWS RDS.</p>
 <ol type="1">
 <li><p><strong>Create New Namespace (PostgreSQL)</strong> From a node inside your cluster on Bastion (eg. [clouduser@my-k3s-server-0 ~])</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create namespace postgres</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -696,17 +696,17 @@ ID: odm-db-credentials</div>
 <h3 class="anchored" data-anchor-id="schema-user-setup">1.2 Schema &amp; User Setup</h3>
 <p>The ODM data source requires specific privileges to initialize the schema on the first startup. Connect to your RDS instance via a bastion host or temporary pod and execute the following SQL commands:</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true" href="">Option A (Oracle)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false" href="">Option B (Postgres)</a></li></ul>
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true" href="">Option A: Oracle</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false" href="">Option B: Postgres</a></li></ul>
 <div class="tab-content">
 <div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
-<p><strong>A. (Lab ONLY) Log into the Container via SQL*Plus:</strong> We connect as <code>SYS</code> (Superuser) to the default Pluggable Database (<code>FREEPDB1</code>).</p>
+<p><strong>1. (Lab ONLY) Log into the Container via SQL*Plus:</strong> We connect as <code>SYS</code> (Superuser) to the default Pluggable Database (<code>FREEPDB1</code>).</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get the pod name</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ORACLE_POD</span><span class="op">=</span><span class="va">$(</span><span class="ex">kubectl</span> get pod <span class="at">-n</span> oracle <span class="at">-l</span> app=oracle-db <span class="at">-o</span> jsonpath=<span class="st">"{.items[0].metadata.name}"</span><span class="va">)</span></span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Exec into SQL*Plus</span></span>
 <span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: Connection string is host:port/ServiceName</span></span>
 <span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> exec <span class="at">-it</span> <span class="at">-n</span> oracle <span class="va">$ORACLE_POD</span> <span class="at">--</span> sqlplus sys/StrongPassword123@//localhost:1521/FREEPDB1 as sysdba</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>B. Run the Setup SQL:</strong> Paste this block directly into the <code>SQL&gt;</code> prompt:</p>
+<p><strong>2. Run the Setup SQL:</strong> Paste this block directly into the <code>SQL&gt;</code> prompt:</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -774,21 +774,36 @@ ID: odm-db-credentials</div>
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The Common Name (<code>/CN</code>) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser.</p>
+<p>The Common Name (<code>/CN</code>) in the certificate must match the exact Fully Qualified Domain Name (FQDN) that users will type into their browser. Choose the pattern that fits your deployment phase:</p>
 <ul>
-<li><strong>In the Lab:</strong> We use the pattern <code>odm.&lt;proxy&gt;</code> (e.g., <code>/CN=odm.my-haproxy.gym.lan/O=Lab/C=US</code>). This ensures the browser accepts the certificate when traffic is routed through your lab’s load balancer.</li>
-<li><strong>In Production (AWS ALB):</strong> Use the <strong>Route53 CNAME</strong> or Alias record created for the application (e.g., <code>/CN=odm.internal.corp</code>).
+<li><strong>In a Pilot (Dummy Hostname):</strong> To bypass corporate DNS/Route53 ticket queues for a quick PoC, use a dummy hostname (e.g., <code>/CN=odm.local.test</code>). You will later route traffic to the AWS ALB by updating your local machine’s <code>hosts</code> file.</li>
+<li><strong>In Production (AWS ALB with DNS):</strong> Use the <strong>Route53 CNAME</strong> or Alias record created for the application (e.g., <code>/CN=odm.internal.corp</code>).
 <ul>
 <li><em>Important:</em> Do <strong>not</strong> use the raw AWS ALB hostname (e.g., <code>*.elb.amazonaws.com</code>) as the CN. Browser security policies will reject the certificate if it identifies the load balancer hardware rather than the application service name.</li>
 </ul></li>
+<li><strong>In a Local Lab:</strong> We use the pattern <code>odm.&lt;proxy&gt;</code> (e.g., <code>/CN=odm.my-haproxy.gym.lan</code>). This ensures the browser accepts the certificate when traffic is routed through your lab’s local load balancer.</li>
 </ul>
 </div>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generate a self-signed certificate and private key</span></span>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Local Admin Privileges Required for Dummy Hostnames
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If you choose the <strong>Pilot (Dummy Hostname)</strong> route, anyone who needs to access the ODM web interface must map the dummy hostname to the ALB’s IP addresses in their local <code>/etc/hosts</code> (Mac/Linux) or <code>C:\Windows\System32\drivers\etc\hosts</code> (Windows) file.</p>
+<p><strong>Modifying this file requires local Administrator or root privileges.</strong> If the operations team or stakeholders testing the Pilot do not have admin rights on their corporate workstations, the dummy hostname workaround will fail for them. In that scenario, you <em>must</em> provision a real Route53/Corporate DNS record.</p>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Generate a self-signed certificate and private key (Pilot Example)</span></span>
 <span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> req <span class="at">-x509</span> <span class="at">-nodes</span> <span class="at">-days</span> 365 <span class="at">-newkey</span> rsa:2048 <span class="dt">\</span></span>
 <span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-keyout</span> odm-lab.key <span class="dt">\</span></span>
 <span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">-out</span> odm-lab.crt <span class="dt">\</span></span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-subj</span> <span class="st">"/CN=odm.internal.corp/O=MyCorp/C=US"</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">-subj</span> <span class="st">"/CN=odm.local.test/O=Pilot/C=US"</span></span>
 <span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Verify the content</span></span>
 <span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> <span class="at">-l</span> odm-lab.key odm-lab.crt</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -834,8 +849,22 @@ ID: odm-db-credentials</div>
 </div>
 </div>
 </div>
-<p><strong>TLS Keystore Secret:</strong> This will be referenced by the Ingress resource (<code>tlsSecretRef</code>) to enable HTTPS.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a standard Kubernetes TLS secret type</span></span>
+<p><strong>Ingress TLS Secret (Non-AWS / Lab Environments Only):</strong> If you are deploying in a local lab or using an in-cluster Ingress controller like NGINX, this secret will be referenced by the Ingress resource (<code>tlsSecretRef</code>) to enable HTTPS.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>AWS ALB Environments: Skip this step
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If you are deploying to AWS EKS and using the AWS Application Load Balancer (ALB), <strong>do not create this Kubernetes secret</strong>. AWS ALBs terminate TLS using certificates stored securely in <strong>AWS Certificate Manager (ACM)</strong>, not Kubernetes secrets.</p>
+<p>Instructions for importing your certificate into ACM and passing the Certificate ARN to the Helm chart are provided in the Helm Configuration section later in this guide.</p>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a standard Kubernetes TLS secret type (For NGINX / Local Labs)</span></span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret tls odm-tls-secret <span class="dt">\</span></span>
 <span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--namespace</span> odm-pilot <span class="dt">\</span></span>
 <span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--key</span> odm-lab.key <span class="dt">\</span></span>
@@ -861,7 +890,7 @@ ID: odm-db-credentials</div>
 <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true" href="">Option A: Private Registry (Production/Restricted)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false" href="">Option B: IBM Registry (Standard Lab)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-3" role="tab" aria-controls="tabset-4-3" aria-selected="false" href="">Option C: Lab Jenkins Deployment (PostgreSQL)</a></li></ul>
 <div class="tab-content">
 <div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
-<p><strong>Target Environment:</strong> Customer Pilot / Air-Gapped / OPA-Enforced</p>
+<p><strong>Target Environment:</strong> Pilot / Air-Gapped / OPA-Enforced</p>
 <p>In strict environments where public internet access is blocked or OPA forbids public registries, you must pull from the internal location where you mirrored the images (e.g., Artifactory).</p>
 <p><strong>Action:</strong> Create a secret using your internal registry credentials.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace with your internal registry details</span></span>

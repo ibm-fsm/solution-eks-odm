@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-03-11">
+<meta name="dcterms.date" content="2026-03-12">
 
 <title>Deployment Readiness – ODM on EKS</title>
 <style>
@@ -276,7 +276,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 11, 2026</p>
+      <p class="date">March 12, 2026</p>
     </div>
   </div>
   
@@ -327,11 +327,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
 <li><strong>Credentials:</strong> Obtain the Endpoint URL, Port, <strong>Oracle Service Name</strong> (preferred over SID), Username, and Password.</li>
 </ul>
-<p><strong>Option B: Compliant Internal Container (Pilot/PoC Alternative)</strong> For non-production pilot environments, the you may provide their own approved PostgreSQL container image to run within the same namespace.</p>
+<p><strong>Option B: Compliant Internal Container (Pilot/PoC Alternative)</strong> For non-production pilot environments, you may provide your own approved PostgreSQL container image to run within the same namespace.</p>
 <ul>
 <li><strong>Requirement:</strong> The container image must be security-hardened and configured to run as a <strong>non-root user (UID &gt; 1001)</strong> to pass OPA checks.<br>
 </li>
-<li><strong>Configuration:</strong> The client is responsible for defining the deployment and storage resources for this custom database container.</li>
+<li><strong>Configuration:</strong> You are responsible for defining the deployment and storage resources for this custom database container.</li>
 </ul>
 </section>
 <section id="supply-chain-image-mirroring" class="level3">
