@@ -54,6 +54,7 @@ service:
   ingress:
     enabled: true
     host: "odm.internal.corp"
+    class: alb
     
     # NOTE: When using AWS ACM, we do not use k8s TLS secrets. 
     # However, if OPA strictness requires a TLS block to be present in the YAML, 
@@ -75,8 +76,6 @@ service:
       # 3. Encryption & Certificates (AWS ACM)
       # Reference your ACM Certificate ARN here
       alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxx-xxxx-xxxx"
-      # Listen on HTTPS (443)
-      #alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
       
       # 4. Backend Security (Re-encryption)
       # Tells ALB to speak HTTPS to the Pods (required for OPA compliance inside cluster)

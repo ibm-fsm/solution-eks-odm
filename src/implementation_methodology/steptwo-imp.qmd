@@ -25,6 +25,7 @@ helm repo update
 # 3. Verify the chart is available (Target: 25.1.0 for ODM 9.5.0.1)
 helm search repo ibm-odm-prod
 ```
+
 ## Option B: Retrieve chart from OCI/Artifactory
 
 :::{.callout-tip}
@@ -32,16 +33,16 @@ helm search repo ibm-odm-prod
 In order to complete these commands, the chart must be uploaded to Artifactory. For instructions to upload the chart into Artifactory, refer to Solution Overview/Prepare.
 :::
 
+Unlike classic Helm repositories, OCI registries do not use `helm repo add`. Instead, you authenticate with the registry and reference the `oci://` URL directly. 
+
 ```bash
 # 1. Log into Artifactory
 helm registry login artifactory.gym.lan:8443 --insecure
 
-# 2. Pull down the chart from Artifactory
-helm template odm-lab oci://artifactory.gym.lan:8443/<Artifactory_Repo_Name>/ibm-odm-prod /
-    --version 25.1.0 /
-    --insecure-skip-tls-verify /
-    --kube-version 1.28.0 /
-    -f values-lab.yaml > odm-raw.yaml
+# 2. Verify access by pulling the chart locally 
+helm pull oci://artifactory.gym.lan:8443/<Artifactory_Repo_Name>/ibm-odm-prod \
+    --version 25.1.0 \
+    --insecure-skip-tls-verify
 ```
 :::
 
