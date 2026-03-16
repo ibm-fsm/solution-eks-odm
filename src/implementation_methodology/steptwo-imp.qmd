@@ -43,6 +43,9 @@ helm registry login artifactory.gym.lan:8443 --insecure
 helm pull oci://artifactory.gym.lan:8443/<Artifactory_Repo_Name>/ibm-odm-prod \
     --version 25.1.0 \
     --insecure-skip-tls-verify
+
+# 3. Untar ibm-odm-prod-25.1.0.tgz
+tar -xvzf ibm-odm-prod-25.1.0.tgz
 ```
 :::
 
