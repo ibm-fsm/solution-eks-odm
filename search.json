@@ -266,8 +266,8 @@
     ]
   },
   {
-    "objectID": "src/implementation_methodology/stepthree-imp.html#phase-3-odm-deployment-traffic-exposure",
-    "href": "src/implementation_methodology/stepthree-imp.html#phase-3-odm-deployment-traffic-exposure",
+    "objectID": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
+    "href": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
     "title": "Sample Application Setup",
     "section": "",
     "text": "Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.\n\n\nDownload the Miniloan Service.zip and execution-payload.json from the following repo.\nImport Miniloan Service.zip into Decision Center.\n\n\n\n\n\n\nGo to bash https://&lt;your-host&gt;/res\nOption A: RES Test UI\n1.  Find the ruleset and select Test\n2.  Paste the payload from execution-payload.json\nOption B: API Call\ncurl -k https://&lt;your-host&gt;/DecisionService \\\n  -H \"Content-Type: application/json\" \\\n  -d @execution-payload.json\nExpect a result like\n{\n  \"approved\": true,\n  \"rate\": 5.5\n}",
