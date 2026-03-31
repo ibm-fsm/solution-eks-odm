@@ -54,8 +54,8 @@ website:
             href: src/implementation_methodology/stepone-imp.qmd
           - text: ODM Deployment
             href: src/implementation_methodology/steptwo-imp.qmd
-          # - text: Step 3
-          #   href: src/implementation_methodology/stepthree-imp.qmd
+          - text: Sample Application Setup
+            href: src/implementation_methodology/stepthree-imp.qmd
         - text: Key Takeaways
           href: src/key-takeaway.qmd
 
