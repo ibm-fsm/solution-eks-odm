@@ -24,6 +24,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -225,7 +260,9 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#phase-3-odm-deployment-traffic-exposure" id="toc-phase-3-odm-deployment-traffic-exposure" class="nav-link active" data-scroll-target="#phase-3-odm-deployment-traffic-exposure">Phase 3: ODM Deployment &amp; Traffic Exposure</a>
   <ul class="collapse">
-  <li><a href="#download-sample-app-zip-file" id="toc-download-sample-app-zip-file" class="nav-link" data-scroll-target="#download-sample-app-zip-file">3.1 Download Sample App Zip File</a></li>
+  <li><a href="#download-and-import-sample-app-zip-file" id="toc-download-and-import-sample-app-zip-file" class="nav-link" data-scroll-target="#download-and-import-sample-app-zip-file">3.1 Download and Import Sample App Zip File</a></li>
+  <li><a href="#open-and-deploy-the-miniloan-project-in-decision-center" id="toc-open-and-deploy-the-miniloan-project-in-decision-center" class="nav-link" data-scroll-target="#open-and-deploy-the-miniloan-project-in-decision-center">3.2 Open and Deploy the Miniloan project in Decision Center</a></li>
+  <li><a href="#verify-in-res" id="toc-verify-in-res" class="nav-link" data-scroll-target="#verify-in-res">3.3 Verify in RES</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -261,8 +298,29 @@ ul.task-list li input[type="checkbox"] {
 <section id="phase-3-odm-deployment-traffic-exposure" class="level2">
 <h2 class="anchored" data-anchor-id="phase-3-odm-deployment-traffic-exposure">Phase 3: ODM Deployment &amp; Traffic Exposure</h2>
 <p>Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.</p>
-<section id="download-sample-app-zip-file" class="level3">
-<h3 class="anchored" data-anchor-id="download-sample-app-zip-file">3.1 Download Sample App Zip File</h3>
+<section id="download-and-import-sample-app-zip-file" class="level3">
+<h3 class="anchored" data-anchor-id="download-and-import-sample-app-zip-file">3.1 Download and Import Sample App Zip File</h3>
+<p>Download the Miniloan Service.zip and execution-payload.json from the following <a href="https://github.com/DecisionsDev/odm-for-container-getting-started">repo</a>.</p>
+<p>Import Miniloan Service.zip into Decision Center.</p>
+</section>
+<section id="open-and-deploy-the-miniloan-project-in-decision-center" class="level3">
+<h3 class="anchored" data-anchor-id="open-and-deploy-the-miniloan-project-in-decision-center">3.2 Open and Deploy the Miniloan project in Decision Center</h3>
+</section>
+<section id="verify-in-res" class="level3">
+<h3 class="anchored" data-anchor-id="verify-in-res">3.3 Verify in RES</h3>
+<p>Go to <code>bash https://&lt;your-host&gt;/res</code></p>
+<p>Option A: RES Test UI</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">1.</span>  Find the ruleset and select Test</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">2.</span>  Paste the payload from execution-payload.json</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Option B: API Call</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-k</span> https://<span class="op">&lt;</span>your-host<span class="op">&gt;</span>/DecisionService <span class="dt">\</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">"Content-Type: application/json"</span> <span class="dt">\</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> @execution-payload.json</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Expect a result like</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"approved"</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"rate"</span><span class="fu">:</span> <span class="fl">5.5</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>
