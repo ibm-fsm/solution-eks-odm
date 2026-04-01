@@ -66,7 +66,7 @@ Option A: RES Test UI
 
 4.  Click Test ruleset
 
-5.  Paste the payload from execution-payload.json
+5.  Switch execution request to JSON and paste the payload from execution-payload.json
 
     ``` json
     {"loan": {
@@ -82,6 +82,10 @@ Option A: RES Test UI
       }}
     ```
 
+<!-- -->
+
+6.  Click Execute Request
+
 Option B: API Call
 
 You can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL
@@ -92,11 +96,16 @@ curl -k https://<your-host>/DecisionService \
   -d @execution-payload.json
 ```
 
+or
+
+``` bash
+curl -k -X POST -H "Content-Type: application/json" \
+     -u <adminUser>:<adminPwd> -d "@execution-payload.json" \
+     https://<yourHost>/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/
+```
+
 Expect a result like
 
 ``` json
-{
-  "approved": true,
-  "rate": 5.5
-}
+{"__DecisionID__":"Test","loan":{"amount":500000,"duration":240,"yearlyInterestRate":0.05,"yearlyRepayment":39597,"approved":false,"messages":["Too big Debt-To-Income ratio"]}}
 ```
