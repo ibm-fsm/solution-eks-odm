@@ -10,7 +10,7 @@ Now that ODM is deployed, we will implement a decision service that externalizes
 
 ### 3.1 Download Sample App Files
 
-Download the [Miniloan Service.zip](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/Miniloan%20Service.zip) and execution-payload.json from the following [repo](https://github.com/DecisionsDev/odm-for-container-getting-started).
+Download the [Miniloan Service.zip](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/Miniloan%20Service.zip) and [execution-payload.json](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/execution-payload.json) from the following [repo](https://github.com/DecisionsDev/odm-for-container-getting-started).
 
 ### 3.2  **Import the Miniload Decision Service**
 
@@ -52,7 +52,7 @@ Download the [Miniloan Service.zip](https://github.com/DecisionsDev/odm-for-cont
 
 10. Click the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.
 
-### 3.4 Verify in Rest
+### 3.4 Verify in Res
 
 Go to `bash https://<your-host>/res`
 
