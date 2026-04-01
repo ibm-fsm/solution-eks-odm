@@ -14,7 +14,7 @@ Download the [Miniloan Service.zip](https://github.com/DecisionsDev/odm-for-cont
 
 ### 3.2 Import the Miniload Decision Service
 
-1.  **Open the Decision Center Business console as admin user**
+1.  **Open** the Decision Center Business console as admin user
 
 2.  Click the **Import Decision Service** button [![Image shows the Import Decision Service button](https://github.com/DecisionsDev/odm-for-container-getting-started/raw/master/doc/images/icon_import_dservice.jpg){alt="Image shows the Import Decision Service button"}](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/doc/images/icon_import_dservice.jpg).
 
@@ -58,14 +58,29 @@ Go to `bash https://<your-host>/res`
 
 Option A: RES Test UI
 
-``` bash
-1.  Find the ruleset and select Test
-2.  Click the Explorer tab.
-3.  Expand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0. 
-4.  Click /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.
-5.  CLick Test ruleset
-6.  Paste the payload from execution-payload.json
-```
+1.  Click the Explorer tab.
+
+2.  Expand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.
+
+3.  Click /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.
+
+4.  Click Test ruleset
+
+5.  Paste the payload from execution-payload.json
+
+    ``` json
+    {"loan": {
+        "amount": 500000,
+        "duration": 240,
+        "yearlyInterestRate": 0.05
+     },
+      "__DecisionID__": "Test",
+      "borrower": {
+        "name": "Joe",
+        "creditScore": 600,
+        "yearlyIncome": 80000
+      }}
+    ```
 
 Option B: API Call
 
