@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-03-31">
+<meta name="dcterms.date" content="2026-04-01">
 
 <title>Sample Application Setup – ODM on EKS</title>
 <style>
@@ -260,9 +260,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#phase-3-miniloan-sample-application-rules" id="toc-phase-3-miniloan-sample-application-rules" class="nav-link active" data-scroll-target="#phase-3-miniloan-sample-application-rules">Phase 3: Miniloan Sample Application Rules</a>
   <ul class="collapse">
-  <li><a href="#download-and-import-sample-app-zip-file" id="toc-download-and-import-sample-app-zip-file" class="nav-link" data-scroll-target="#download-and-import-sample-app-zip-file">3.1 Download and Import Sample App Zip File</a></li>
-  <li><a href="#open-and-deploy-the-miniloan-project-in-decision-center" id="toc-open-and-deploy-the-miniloan-project-in-decision-center" class="nav-link" data-scroll-target="#open-and-deploy-the-miniloan-project-in-decision-center">3.2 Open and Deploy the Miniloan project in Decision Center</a></li>
-  <li><a href="#verify-in-res" id="toc-verify-in-res" class="nav-link" data-scroll-target="#verify-in-res">3.3 Verify in RES</a></li>
+  <li><a href="#download-sample-app-files" id="toc-download-sample-app-files" class="nav-link" data-scroll-target="#download-sample-app-files">3.1 Download Sample App Files</a></li>
+  <li><a href="#import-the-miniload-decision-service" id="toc-import-the-miniload-decision-service" class="nav-link" data-scroll-target="#import-the-miniload-decision-service">3.2 <strong>Import the Miniload Decision Service</strong></a></li>
+  <li><a href="#deploy-miniloan-ruleapp" id="toc-deploy-miniloan-ruleapp" class="nav-link" data-scroll-target="#deploy-miniloan-ruleapp">3.3 Deploy Miniloan RuleApp</a></li>
+  <li><a href="#verify-in-rest" id="toc-verify-in-rest" class="nav-link" data-scroll-target="#verify-in-rest">3.4 Verify in Rest</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -283,7 +284,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">March 31, 2026</p>
+      <p class="date">April 1, 2026</p>
     </div>
   </div>
   
@@ -298,16 +299,45 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="phase-3-miniloan-sample-application-rules" class="level2">
 <h2 class="anchored" data-anchor-id="phase-3-miniloan-sample-application-rules">Phase 3: Miniloan Sample Application Rules</h2>
 <p>Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.</p>
-<section id="download-and-import-sample-app-zip-file" class="level3">
-<h3 class="anchored" data-anchor-id="download-and-import-sample-app-zip-file">3.1 Download and Import Sample App Zip File</h3>
-<p>Download the Miniloan Service.zip and execution-payload.json from the following <a href="https://github.com/DecisionsDev/odm-for-container-getting-started">repo</a>.</p>
-<p>Import Miniloan Service.zip into Decision Center.</p>
+<section id="download-sample-app-files" class="level3">
+<h3 class="anchored" data-anchor-id="download-sample-app-files">3.1 Download Sample App Files</h3>
+<p>Download the <a href="https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/Miniloan%20Service.zip">Miniloan Service.zip</a> and execution-payload.json from the following <a href="https://github.com/DecisionsDev/odm-for-container-getting-started">repo</a>.</p>
 </section>
-<section id="open-and-deploy-the-miniloan-project-in-decision-center" class="level3">
-<h3 class="anchored" data-anchor-id="open-and-deploy-the-miniloan-project-in-decision-center">3.2 Open and Deploy the Miniloan project in Decision Center</h3>
+<section id="import-the-miniload-decision-service" class="level3">
+<h3 class="anchored" data-anchor-id="import-the-miniload-decision-service">3.2 <strong>Import the Miniload Decision Service</strong></h3>
+<ol type="1">
+<li><p><strong>Open the Decision Center Business console as admin user</strong></p></li>
+<li><p>Click the <strong>Import Decision Service</strong> button <a href="https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/doc/images/icon_import_dservice.jpg"><img src="https://github.com/DecisionsDev/odm-for-container-getting-started/raw/master/doc/images/icon_import_dservice.jpg" class="img-fluid" alt="Image shows the Import Decision Service button"></a>.</p></li>
+<li><p>Click <strong>Choose</strong> to browse and then select the <code>Miniloan Service.zip</code> file you previously downloaded (<a href="https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/Miniloan%20Service.zip?raw=1">MiniLoan Service.zip</a>).</p></li>
+<li><p>Make sure <strong>Use Decision Governance Framework</strong> is not selected. For this test we will work with an ungoverned branch of the decision service.</p></li>
+<li><p>Click <strong>Import</strong>. The Miniloan Service decision service automatically opens. You see the <strong>Releases</strong> and <strong>Branches</strong> tabs. Because you chose not to use the decision governance framework, you can see that the <strong>Releases</strong> tab is empty.</p></li>
+<li><p>Open the <strong>Branches</strong> tab, and then click the <strong>main</strong> branch. A decision service can contain many projects. For simplicity, all the rules of Miniloan Service are contained in its top-level project, which has the same name as the decision service.</p></li>
+<li><p>Click <strong>All types</strong> in the <strong>Types</strong> window to display all the artifacts. In the <strong>Decision Artifacts</strong> tab, you can see a folder for the decision operations, the miniloan ruleflow, and folders that contain the rules:</p></li>
+</ol>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/doc/images/scrn_decision_artifacts.jpg"><img src="https://github.com/DecisionsDev/odm-for-container-getting-started/raw/master/doc/images/scrn_decision_artifacts.jpg" class="img-fluid figure-img" alt="Image shows the Decision Artifacts tab"></a></p>
+<figcaption>Image shows the Decision Artifacts tab</figcaption>
+</figure>
+</div>
 </section>
-<section id="verify-in-res" class="level3">
-<h3 class="anchored" data-anchor-id="verify-in-res">3.3 Verify in RES</h3>
+<section id="deploy-miniloan-ruleapp" class="level3">
+<h3 class="anchored" data-anchor-id="deploy-miniloan-ruleapp">3.3 Deploy Miniloan RuleApp</h3>
+<ol type="1">
+<li><p>Click the <strong>Deployments</strong> tab to see its contents.</p></li>
+<li><p>Click the <strong>Miniloan</strong> deployment configuration.</p></li>
+<li><p>Click the <strong>Edit</strong> button in the upper right corner of the window.</p></li>
+<li><p>Click the <strong>Targets</strong> tab.</p></li>
+<li><p>Check that <strong>Decision Service Execution</strong> is selected and click the <strong>Save</strong> button.</p></li>
+<li><p>Type “Miniloan policy”, and click <strong>Create new version</strong>.</p></li>
+<li><p>Click the <strong>Deploy</strong> button <a href="https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/doc/images/icon_deploy.jpg"><img src="https://github.com/DecisionsDev/odm-for-container-getting-started/raw/master/doc/images/icon_deploy.jpg" class="img-fluid" alt="Image shows the Deploy button"></a> in the upper right corner of the window. A dialog box opens with a summary of the deployment configuration. It gives you the option of deploying to a server or creating a RuleApp archive.</p></li>
+<li><p>Leave <strong>Server</strong> selected in the dialog, and click <strong>Deploy</strong>.</p></li>
+<li><p>Click <strong>OK</strong> in the deployment status message. The <strong>Reports</strong> subtab opens in the <strong>Deployments</strong> tab.</p></li>
+<li><p>Click the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.</p></li>
+</ol>
+</section>
+<section id="verify-in-rest" class="level3">
+<h3 class="anchored" data-anchor-id="verify-in-rest">3.4 Verify in Rest</h3>
 <p>Go to <code>bash https://&lt;your-host&gt;/res</code></p>
 <p>Option A: RES Test UI</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">1.</span>  Find the ruleset and select Test</span>
