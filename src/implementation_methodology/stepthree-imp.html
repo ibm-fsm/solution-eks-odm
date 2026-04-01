@@ -345,7 +345,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p>Expand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.</p></li>
 <li><p>Click /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.</p></li>
 <li><p>Click Test ruleset</p></li>
-<li><p>Paste the payload from execution-payload.json</p>
+<li><p>Switch execution request to JSON and paste the payload from execution-payload.json</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">"loan"</span><span class="fu">:</span> <span class="fu">{</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"amount"</span><span class="fu">:</span> <span class="dv">500000</span><span class="fu">,</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"duration"</span><span class="fu">:</span> <span class="dv">240</span><span class="fu">,</span></span>
@@ -358,16 +358,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"yearlyIncome"</span><span class="fu">:</span> <span class="dv">80000</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 </ol>
+<!-- -->
+<ol start="6" type="1">
+<li>Click Execute Request</li>
+</ol>
 <p>Option B: API Call</p>
 <p>You can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-k</span> https://<span class="op">&lt;</span>your-host<span class="op">&gt;</span>/DecisionService <span class="dt">\</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">"Content-Type: application/json"</span> <span class="dt">\</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> @execution-payload.json</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>or</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-k</span> <span class="at">-X</span> POST <span class="at">-H</span> <span class="st">"Content-Type: application/json"</span> <span class="dt">\</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>     <span class="at">-u</span> <span class="op">&lt;</span>adminUser<span class="op">&gt;</span>:<span class="op">&lt;</span>adminPwd<span class="op">&gt;</span> -d <span class="st">"@execution-payload.json"</span> <span class="dt">\</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>     https://<span class="op">&lt;</span>yourHost<span class="op">&gt;</span>/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Expect a result like</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"approved"</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"rate"</span><span class="fu">:</span> <span class="fl">5.5</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">"__DecisionID__"</span><span class="fu">:</span><span class="st">"Test"</span><span class="fu">,</span><span class="dt">"loan"</span><span class="fu">:{</span><span class="dt">"amount"</span><span class="fu">:</span><span class="dv">500000</span><span class="fu">,</span><span class="dt">"duration"</span><span class="fu">:</span><span class="dv">240</span><span class="fu">,</span><span class="dt">"yearlyInterestRate"</span><span class="fu">:</span><span class="fl">0.05</span><span class="fu">,</span><span class="dt">"yearlyRepayment"</span><span class="fu">:</span><span class="dv">39597</span><span class="fu">,</span><span class="dt">"approved"</span><span class="fu">:</span><span class="kw">false</span><span class="fu">,</span><span class="dt">"messages"</span><span class="fu">:</span><span class="ot">[</span><span class="st">"Too big Debt-To-Income ratio"</span><span class="ot">]</span><span class="fu">}}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>
