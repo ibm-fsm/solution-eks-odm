@@ -12,7 +12,7 @@ Now that ODM is deployed, we will implement a decision service that externalizes
 
 Download the [Miniloan Service.zip](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/Miniloan%20Service.zip) and [execution-payload.json](https://github.com/DecisionsDev/odm-for-container-getting-started/blob/master/execution-payload.json) from the following [repo](https://github.com/DecisionsDev/odm-for-container-getting-started).
 
-### 3.2  Import the Miniload Decision Service
+### 3.2 Import the Miniload Decision Service
 
 1.  **Open the Decision Center Business console as admin user**
 
@@ -60,10 +60,16 @@ Option A: RES Test UI
 
 ``` bash
 1.  Find the ruleset and select Test
-2.  Paste the payload from execution-payload.json
+2.  Click the Explorer tab.
+3.  Expand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0. 
+4.  Click /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.
+5.  CLick Test ruleset
+6.  Paste the payload from execution-payload.json
 ```
 
 Option B: API Call
+
+You can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL
 
 ``` bash
 curl -k https://<your-host>/DecisionService \
