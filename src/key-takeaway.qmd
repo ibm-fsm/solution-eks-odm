@@ -5,12 +5,6 @@ format: html
 
 ## Key Takeaways
 
-::: {.callout-note appearance="simple"}
-**Document Status: Pre-Pilot**
-
-This section is currently a placeholder. Following the execution of the pilot phase, this section will be updated to reflect the actual outcomes, technical hurdles overcome, and validated best practices. The structure below outlines the key metrics and qualitative data points to be captured.
-:::
-
 ### Pilot Results
 
 *   **Security Validation:** OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.
