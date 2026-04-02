@@ -3,8 +3,6 @@ title: "Key Takeaways"
 format: html
 ---
 
-## Key Takeaways
-
 ### Pilot Results
 
 *   **Security Validation:** OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.
