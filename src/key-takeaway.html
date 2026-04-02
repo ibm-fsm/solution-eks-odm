@@ -268,25 +268,39 @@ ul.task-list li input[type="checkbox"] {
 <section id="pilot-results" class="level3">
 <h3 class="anchored" data-anchor-id="pilot-results">Pilot Results</h3>
 <ul>
-<li><strong>Security Validation:</strong> OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required iterative patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.</li>
+<li><strong>Security Validation:</strong> OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.</li>
 <li><strong>Connectivity:</strong> End-to-end connectivity from ingress to ODM services was successfully established. TLS termination and internal routing functioned as expected once services were healthy. The pilot confirmed that ingress configuration (including annotations and TLS settings) can securely expose ODM endpoints while maintaining encrypted communication within the cluster.</li>
-<li><strong>Performance:</strong> [Pending]</li>
 </ul>
 </section>
 <section id="lessons-learned" class="level3">
 <h3 class="anchored" data-anchor-id="lessons-learned">Lessons Learned</h3>
 <ul>
-<li><strong>Configuration Challenges:</strong> [Insert details on any specific Helm chart overrides or Ingress annotations that required significant debugging].</li>
-<li><strong>Operational Friction:</strong> [Note any difficulties the team faced when managing secrets or certificates manually].</li>
-<li><strong>Unexpected Behavior:</strong> [Document any AWS-specific quirks encountered, such as ALB provisioning delays or Security Group mapping issues].</li>
+<li><strong>Configuration Challenges:</strong> The default Helm chart required significant augmentation to meet enterprise policy requirements. Key challenges included enforcing security contexts (runAsGroup, supplementalGroups, seccomp), overriding image pull policies for init containers, and patching components not fully configurable via values.yaml (e.g., test jobs). Additionally, ingress configuration required precise annotations (TLS enforcement, backend protocol, routing paths) to align with cluster ingress controller behavior.</li>
+<li><strong>Operational Friction:</strong> Manual configuration of environment-specific parameters introduced complexity and room for error. Standardizing these inputs and integrating them into a controlled deployment pipeline such as Jenkins will improve the deployment process.</li>
+<li><strong>Unexpected Behavior:</strong> Kubernetes services only route to pods that pass readiness checks, meaning application-level issues can manifest as networking failures. Ingress resources may appear correctly configured even when backend services are unavailable, requiring inspection of service endpoints and pod health. Additionally, overlapping environments using the same hostname can create routing ambiguity, reinforcing the importance of clear environment isolation.</li>
 </ul>
 </section>
 <section id="recommendations-for-production" class="level3">
 <h3 class="anchored" data-anchor-id="recommendations-for-production">Recommendations for Production</h3>
 <ul>
-<li><strong>Automation:</strong> [Plan to transition from manual secret creation to External Secrets Operator?].</li>
-<li><strong>Observability:</strong> [Plan for integrating CloudWatch or Prometheus to monitor the decision runner performance?].</li>
-<li><strong>Scaling:</strong> [Recommendations for HPA (Horizontal Pod Autoscaler) based on the pilot load testing?].</li>
+<li><strong>Automation:</strong>
+<ul>
+<li>Implement a fully automated deployment pipeline (ie Jenkins, Github Actions) with Helm template, Kustomize overlays, to enforce consistent, policy-compliant configurations</li>
+<li>Integrate centralized secret management (e.g., External Secrets Operator or Vault) to eliminate manual credential handling</li>
+<li>Standardize environment configuration (DB, ingress, TLS) as reusable templates</li>
+</ul></li>
+<li><strong>Observability:</strong>
+<ul>
+<li>Integrate monitoring and logging (e.g., Prometheus and Grafana, or cloud-native equivalents such as CloudWatch) to track pod readiness, restart patterns, and decision service latency</li>
+<li>Implement alerting for failed readiness probes, missing service endpoints, and dependency failures (e.g., database connectivity)</li>
+<li>Enhance visibility into ODM application logs to reduce time to diagnose issues across components</li>
+</ul></li>
+<li><strong>Scaling:</strong>
+<ul>
+<li>Implement Horizontal Pod Autoscaler (HPA) for decision runtime components based on CPU utilization and request throughput</li>
+<li>Scale Decision Center independently from runtime components, as it serves administrative rather than high-throughput workloads</li>
+<li>Plan for backend database scaling and connection management, as ODM performance is tightly coupled to database responsiveness under load</li>
+</ul></li>
 </ul>
 
 
