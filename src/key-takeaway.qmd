@@ -13,9 +13,9 @@ This section is currently a placeholder. Following the execution of the pilot ph
 
 ### Pilot Results
 
-*   **Security Validation:** [Pending] Confirm if OPA Gatekeeper successfully blocked non-compliant resources without impeding valid deployments.
-*   **Connectivity:** [Pending] Verify if the End-to-End TLS chain (User -> ALB -> Pod) functioned as expected with the self-signed internal certificates.
-*   **Performance:** [Pending] Observations regarding the startup time of ODM pods when connecting to Oracle compared to local/on-prem databases.
+*   **Security Validation:** OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required iterative patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.
+*   **Connectivity:** End-to-end connectivity from ingress to ODM services was successfully established. TLS termination and internal routing functioned as expected once services were healthy. The pilot confirmed that ingress configuration (including annotations and TLS settings) can securely expose ODM endpoints while maintaining encrypted communication within the cluster.
+*   **Performance:** [Pending]  
 
 ### Lessons Learned
 
