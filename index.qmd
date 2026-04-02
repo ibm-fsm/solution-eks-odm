@@ -6,7 +6,7 @@ format: html
 date: last-modified
 ---
 ```{=html}
-<span class="dot">MD</span> &ensp;<a target="_blank" href="https://github.com/doormat18">Mat Davis</a>&ensp;&nbsp;<span class="dot">MS</span> &ensp;Maria Salamone&ensp;
+<span class="dot">MD</span> &ensp;<a target="_blank" href="https://github.com/doormat18">Mat Davis</a>&ensp;&nbsp;<span class="dot">MS</span> &ensp;<a target="_blank" href="https://github.com/msalamone363">Maria Salamone</a>&ensp;
 ```
 <br>
 ---
