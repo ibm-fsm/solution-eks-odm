@@ -1,5 +1,112 @@
 [
   {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "",
+    "text": "MD",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
+    "href": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
+    "text": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "index.html#the-why",
+    "href": "index.html#the-why",
+    "title": "Secure Deployment of IBM ODM on AWS EKS",
+    "section": "The Why",
+    "text": "The Why\nThe client is executing a strategic initiative to modernize their business rule management systems, transitioning critical decision logic from the mainframe to a cloud-native architecture on AWS EKS. This modernization effort requires the agility of containerization without compromising the rigorous security standards inherent to the financial services sector.\n\nBalancing Agility and Security: The primary challenge lies in reconciling the rapid deployment capabilities of IBM ODM with the client’s “Zero Exception” security posture.\nStrict Compliance alignment: Financial services environments often enforce “Restricted” Pod Security Standards that exceed standard Kubernetes defaults. Deploying complex enterprise software into these environments requires bridging the gap between standard deployment manifests and bespoke security constraints.\nOperational Standardization: The client requires a repeatable, automated deployment pipeline that satisfies automated policy gates (OPA Gatekeeper) without requiring manual intervention or policy waivers.\n\n\nProblem Details\nTechnical Hurdles & Policy Integration\nThe objective is to deploy IBM Operational Decision Manager (ODM) v9.5 into an AWS EKS cluster protected by OPA Gatekeeper constraints. While the IBM ODM Helm Chart covers the vast majority of Kubernetes security configurations, this specific environment enforces a distinct set of “Restricted” policies that require granular control over every aspect of the Pod Security Context.\nThe specific integration challenges addressed in this solution include:\n\nGranular Security Context Enforcement: The target environment mandates explicit definitions for runAsGroup and supplementalGroups at the Pod level. The solution requires a method to inject these specific, client-mandated security contexts into the standard deployment manifests during the CI/CD process.\nZero-Trust Persistence Architecture: The standard internal database configuration utilizes specific filesystem groups (fsGroup) for storage permission management. To align with the client’s non-root requirements (UID/GID &gt; 1000), the architecture must be adapted to utilize an External Database (e.g. AWS RDS) rather than containerized persistence.\nSecure Supply Chain: The environment prohibits pulling images from public or vendor registries. The deployment workflow must accommodate an air-gapped supply chain, utilizing an internal artifact repository and referencing all container images strictly by SHA256 digests.\nIngress Hardening: To meet strict traffic control policies, the solution must explicitly disable HTTP pathways and enforce TLS termination and specific ingress host matching at the manifest level.\n\n\n\nAdditional Context\nEnvironment & Constraints\n\nPlatform: AWS Elastic Kubernetes Service (EKS).\nPolicy Engine: Open Policy Agent (OPA) Gatekeeper enforcing the Kubernetes “Restricted” Pod Security Standard.\nConstraint Strictness:\n\nImmutable Policies: The platform team does not allow policy exceptions or namespace-level whitelisting.\nPre-Deployment Validation: Deployment manifests must be fully compliant before applying to the cluster; relying on post-admission mutations is not permitted.\n\nSoftware Version: IBM ODM 9.5.0.1 (Helm Chart 25.1.0).\nNetwork Posture: Strict egress filtering requires explicit allowance for connectivity to external services (RDS) and internal tooling (Artifactory).",
+    "crumbs": [
+      "Problem Definition"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html",
+    "href": "src/solution_overview/environment.html",
+    "title": "Environment Architecture",
+    "section": "",
+    "text": "This section details the reference architecture for the IBM ODM v9.5 deployment. The environment is designed to operate within a “Restricted” Kubernetes security context, utilizing externalized persistence and strict traffic controls to satisfy organizational compliance standards.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#logical-topology",
+    "href": "src/solution_overview/environment.html#logical-topology",
+    "title": "Environment Architecture",
+    "section": "Logical Topology",
+    "text": "Logical Topology\nThe deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.\n\nCompute: Stateless Pods running on AWS EKS Worker Nodes.\nPersistence: External Oracle for transactional data.\nArtifacts: Internal Trusted Registry (Artifactory) for container images.\nRouting: Ingress Controller handling TLS termination and routing to internal ClusterIP services.\n\n\n\n\n\n\ngraph LR\n    %% ---------------------------------------------------------\n    %% STYLING DEFINITIONS\n    %% ---------------------------------------------------------\n    classDef darkBlue fill:#002C6D,stroke:#333,stroke-width:2px,color:white;\n    classDef lightBlue fill:#6BA2C1,stroke:#333,stroke-width:2px,color:white;\n    classDef green fill:#368727,stroke:#333,stroke-width:2px,color:white;\n    classDef white fill:#ffffff,stroke:#333,stroke-width:1px,color:black;\n    %% Invisible style for spacing wrappers\n    classDef invisible fill:none,stroke:none,color:none;\n\n    %% ---------------------------------------------------------\n    %% NODE DEFINITIONS\n    %% ---------------------------------------------------------\n    subgraph CN [\"Corporate Network\"]\n        User((\"User\"))\n        Admin((\"Admin\"))\n    end\n\n    subgraph AWS_CLOUD [\"AWS Cloud Environment\"]\n        %% SPACER 1: Pushes content away from 'AWS Cloud Environment' title\n        subgraph CLOUD_SPACER [\" \"]\n            direction LR\n            \n            ALB[\"AWS ALB&lt;br/&gt;(Terminates & Re-encrypts)\"]\n\n            subgraph EKS [\"AWS EKS Cluster\"]\n                %% SPACER 2: Pushes content away from 'AWS EKS Cluster' title\n                subgraph EKS_SPACER [\" \"]\n                    direction LR\n                    \n                    subgraph NS [\"Namespace: odm-pilot\"]\n                        %% SPACER 3: Pushes content away from 'Namespace' title\n                        subgraph NS_SPACER [\" \"]\n                            \n                            subgraph ODM [\"ODM Workload (UID 1001)\"]\n                                DC[\"Decision Center\"]\n                                DR[\"Decision Runner\"]\n                                DSC[\"DS Console\"]\n                                DSR[\"DS Runtime\"]\n                            end\n                        end\n                    end\n                end\n            end\n\n            Database[(\"Oracle\")]\n        end\n    end\n\n    subgraph EXT [\"External Infrastructure\"]\n        Registry[(\"Internal Artifactory\")]\n    end\n\n    %% ---------------------------------------------------------\n    %% CONNECTIONS\n    %% ---------------------------------------------------------\n    \n    %% Inbound HTTPS\n    User --&gt;|\"HTTPS\"| ALB\n    Admin --&gt;|\"HTTPS\"| ALB\n    \n    %% Internal Re-encrypted HTTPS\n    ALB --&gt;|\"HTTPS\"| DC\n    ALB --&gt;|\"HTTPS\"| DR\n    ALB --&gt;|\"HTTPS\"| DSC\n    ALB --&gt;|\"HTTPS\"| DSR\n\n    %% Database Connectivity\n    DC --&gt;|\"JDBC/TCP 1521\"| Database\n    DR --&gt;|\"JDBC/TCP 1521\"| Database\n    DSC --&gt;|\"JDBC/TCP 1521\"| Database\n    DSR --&gt;|\"JDBC/TCP 1521\"| Database\n\n    %% Image Pulls\n    DC -.-&gt;|\"Image Pull\"| Registry\n    DR -.-&gt;|\"Image Pull\"| Registry\n    DSC -.-&gt;|\"Image Pull\"| Registry\n    DSR -.-&gt;|\"Image Pull\"| Registry\n\n    %% ---------------------------------------------------------\n    %% APPLY STYLES\n    %% ---------------------------------------------------------\n    class User,Admin darkBlue;\n    class DC,DR,DSC,DSR lightBlue;\n    class Database,ALB green;\n    class Registry white;\n    \n    %% Apply invisible style to all spacer subgraphs\n    class CLOUD_SPACER,EKS_SPACER,NS_SPACER invisible;",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#component-matrix",
+    "href": "src/solution_overview/environment.html#component-matrix",
+    "title": "Environment Architecture",
+    "section": "Component Matrix",
+    "text": "Component Matrix\nThe solution validates the integration of the following specific software versions.\n\n\n\n\n\n\n\n\nComponent\nVersion\nRole\n\n\n\n\nPlatform\nAWS EKS (K8s 1.24+)\nContainer Orchestration Platform\n\n\nSoftware\nIBM ODM 9.5.0.1\nBusiness Rule Management System\n\n\nHelm Chart\nibm-odm-prod 25.1.0\nDeployment Manager\n\n\nDatabase\nOracle 19c or 23ai\nExternal Persistence Layer (AWS RDS or EC2)\n\n\nPolicy Engine\nOPA Gatekeeper\nSecurity Governance & Admission Control\n\n\nIngress\nNGINX / AWS ALB\nTraffic Routing & TLS Termination",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#security-context-specification",
+    "href": "src/solution_overview/environment.html#security-context-specification",
+    "title": "Environment Architecture",
+    "section": "Security Context Specification",
+    "text": "Security Context Specification\nTo comply with the Restricted Pod Security Standards enforced by OPA Gatekeeper, the ODM application containers are configured with a strict security profile. This profile overrides standard defaults to ensure “Zero Privilege” execution.\n\nPod Security Settings\nThe deployment pipeline explicitly injects the following contexts into all workload resources:\n\nUser ID (UID): 1001 (Non-Root)\nGroup ID (GID): 1001 (Non-Root)\nFilesystem: Read-Only Root Filesystem (with specific volume mounts for temp directories)\nPrivilege Escalation: AllowPrivilegeEscalation: false\nCapabilities: DROP ALL\nSeccomp Profile: RuntimeDefault\n\n\n\n\n\n\n\nNote\n\n\n\nService Account Token: To minimize the attack surface, automountServiceAccountToken is disabled on application pods. This configuration is validated for core ODM functionality, though it restricts the usage of the standard IBM License Metering agent sidecar.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/solution_overview/environment.html#network-connectivity",
+    "href": "src/solution_overview/environment.html#network-connectivity",
+    "title": "Environment Architecture",
+    "section": "Network & Connectivity",
+    "text": "Network & Connectivity\nThe environment assumes a “Deny by Default” network posture.\n\nIngress (Inbound)\n\nProtocol: HTTPS Only (HTTP traffic is strictly disabled at the Ingress level).\nTermination: TLS is terminated at the Ingress Controller using a Kubernetes Secret.\nRouting: Traffic is routed to internal ClusterIP services. No NodePorts or LoadBalancers are created directly by the application.\n\n\n\nEgress (Outbound)\nThe ODM Pods require outbound network access to the following destinations:\n\nDatabase: TCP access to the AWS RDS endpoint (typically port 5432).\nImage Registry: HTTPS access to the internal Artifactory for image pulling.\nInternal DNS: UDP/TCP access to the cluster CoreDNS service.",
+    "crumbs": [
+      "Solution Overview",
+      "Environment"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/stepthree-imp.html",
+    "href": "src/implementation_methodology/stepthree-imp.html",
+    "title": "Sample Application Setup",
+    "section": "",
+    "text": "Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.\n\n\nDownload the Miniloan Service.zip and execution-payload.json from the following repo.\n\n\n\n\nOpen the Decision Center Business console as admin user\nClick the Import Decision Service button .\nClick Choose to browse and then select the Miniloan Service.zip file you previously downloaded (MiniLoan Service.zip).\nMake sure Use Decision Governance Framework is not selected. For this test we will work with an ungoverned branch of the decision service.\nClick Import. The Miniloan Service decision service automatically opens. You see the Releases and Branches tabs. Because you chose not to use the decision governance framework, you can see that the Releases tab is empty.\nOpen the Branches tab, and then click the main branch. A decision service can contain many projects. For simplicity, all the rules of Miniloan Service are contained in its top-level project, which has the same name as the decision service.\nClick All types in the Types window to display all the artifacts. In the Decision Artifacts tab, you can see a folder for the decision operations, the miniloan ruleflow, and folders that contain the rules:\n\n\n\n\nImage shows the Decision Artifacts tab\n\n\n\n\n\n\nClick the Deployments tab to see its contents.\nClick the Miniloan deployment configuration.\nClick the Edit button in the upper right corner of the window.\nClick the Targets tab.\nCheck that Decision Service Execution is selected and click the Save button.\nType “Miniloan policy”, and click Create new version.\nClick the Deploy button  in the upper right corner of the window. A dialog box opens with a summary of the deployment configuration. It gives you the option of deploying to a server or creating a RuleApp archive.\nLeave Server selected in the dialog, and click Deploy.\nClick OK in the deployment status message. The Reports subtab opens in the Deployments tab.\nClick the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.\n\n\n\n\nGo to bash https://&lt;your-host&gt;/res\nOption A: RES Test UI\n\nClick the Explorer tab.\nExpand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.\nClick /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.\nClick Test ruleset\nSwitch execution request to JSON and paste the payload from execution-payload.json\n{\"loan\": {\n    \"amount\": 500000,\n    \"duration\": 240,\n    \"yearlyInterestRate\": 0.05\n },\n  \"__DecisionID__\": \"Test\",\n  \"borrower\": {\n    \"name\": \"Joe\",\n    \"creditScore\": 600,\n    \"yearlyIncome\": 80000\n  }}\n\n\n\nClick Execute Request\n\nOption B: API Call\nYou can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL\ncurl -k https://&lt;your-host&gt;/DecisionService \\\n  -H \"Content-Type: application/json\" \\\n  -d @execution-payload.json\nor\ncurl -k -X POST -H \"Content-Type: application/json\" \\\n     -u &lt;adminUser&gt;:&lt;adminPwd&gt; -d \"@execution-payload.json\" \\\n     https://&lt;yourHost&gt;/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/\nExpect a result like\n{\"__DecisionID__\":\"Test\",\"loan\":{\"amount\":500000,\"duration\":240,\"yearlyInterestRate\":0.05,\"yearlyRepayment\":39597,\"approved\":false,\"messages\":[\"Too big Debt-To-Income ratio\"]}}\nJar File for testing Download the Jar",
+    "crumbs": [
+      "Implementation Methodology",
+      "Sample Application Setup"
+    ]
+  },
+  {
+    "objectID": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
+    "href": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
+    "title": "Sample Application Setup",
+    "section": "",
+    "text": "Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.\n\n\nDownload the Miniloan Service.zip and execution-payload.json from the following repo.\n\n\n\n\nOpen the Decision Center Business console as admin user\nClick the Import Decision Service button .\nClick Choose to browse and then select the Miniloan Service.zip file you previously downloaded (MiniLoan Service.zip).\nMake sure Use Decision Governance Framework is not selected. For this test we will work with an ungoverned branch of the decision service.\nClick Import. The Miniloan Service decision service automatically opens. You see the Releases and Branches tabs. Because you chose not to use the decision governance framework, you can see that the Releases tab is empty.\nOpen the Branches tab, and then click the main branch. A decision service can contain many projects. For simplicity, all the rules of Miniloan Service are contained in its top-level project, which has the same name as the decision service.\nClick All types in the Types window to display all the artifacts. In the Decision Artifacts tab, you can see a folder for the decision operations, the miniloan ruleflow, and folders that contain the rules:\n\n\n\n\nImage shows the Decision Artifacts tab\n\n\n\n\n\n\nClick the Deployments tab to see its contents.\nClick the Miniloan deployment configuration.\nClick the Edit button in the upper right corner of the window.\nClick the Targets tab.\nCheck that Decision Service Execution is selected and click the Save button.\nType “Miniloan policy”, and click Create new version.\nClick the Deploy button  in the upper right corner of the window. A dialog box opens with a summary of the deployment configuration. It gives you the option of deploying to a server or creating a RuleApp archive.\nLeave Server selected in the dialog, and click Deploy.\nClick OK in the deployment status message. The Reports subtab opens in the Deployments tab.\nClick the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.\n\n\n\n\nGo to bash https://&lt;your-host&gt;/res\nOption A: RES Test UI\n\nClick the Explorer tab.\nExpand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.\nClick /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.\nClick Test ruleset\nSwitch execution request to JSON and paste the payload from execution-payload.json\n{\"loan\": {\n    \"amount\": 500000,\n    \"duration\": 240,\n    \"yearlyInterestRate\": 0.05\n },\n  \"__DecisionID__\": \"Test\",\n  \"borrower\": {\n    \"name\": \"Joe\",\n    \"creditScore\": 600,\n    \"yearlyIncome\": 80000\n  }}\n\n\n\nClick Execute Request\n\nOption B: API Call\nYou can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL\ncurl -k https://&lt;your-host&gt;/DecisionService \\\n  -H \"Content-Type: application/json\" \\\n  -d @execution-payload.json\nor\ncurl -k -X POST -H \"Content-Type: application/json\" \\\n     -u &lt;adminUser&gt;:&lt;adminPwd&gt; -d \"@execution-payload.json\" \\\n     https://&lt;yourHost&gt;/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/\nExpect a result like\n{\"__DecisionID__\":\"Test\",\"loan\":{\"amount\":500000,\"duration\":240,\"yearlyInterestRate\":0.05,\"yearlyRepayment\":39597,\"approved\":false,\"messages\":[\"Too big Debt-To-Income ratio\"]}}\nJar File for testing Download the Jar",
+    "crumbs": [
+      "Implementation Methodology",
+      "Sample Application Setup"
+    ]
+  },
+  {
     "objectID": "src/implementation_methodology/stepone-imp.html",
     "href": "src/implementation_methodology/stepone-imp.html",
     "title": "Phase 1: Foundation & Prerequisite Configuration",
@@ -19,6 +126,23 @@
     "crumbs": [
       "Implementation Methodology",
       "Foundation & Prereqs"
+    ]
+  },
+  {
+    "objectID": "src/landing_page/landing_page.html",
+    "href": "src/landing_page/landing_page.html",
+    "title": "Project Name",
+    "section": "",
+    "text": "Project Name\nSubtitle\n\n\nOur Documentation \n\n\n\n\n\nNext Steps\n\n\n\nL ink 1\n\n\n\nLink 2"
+  },
+  {
+    "objectID": "src/key-takeaway.html",
+    "href": "src/key-takeaway.html",
+    "title": "Key Takeaways",
+    "section": "",
+    "text": "Pilot Results\n\nSecurity Validation: OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.\nConnectivity: End-to-end connectivity from ingress to ODM services was successfully established. TLS termination and internal routing functioned as expected once services were healthy. The pilot confirmed that ingress configuration (including annotations and TLS settings) can securely expose ODM endpoints while maintaining encrypted communication within the cluster.\n\n\n\nLessons Learned\n\nConfiguration Challenges: The default Helm chart required significant augmentation to meet enterprise policy requirements. Key challenges included enforcing security contexts (runAsGroup, supplementalGroups, seccomp), overriding image pull policies for init containers, and patching components not fully configurable via values.yaml (e.g., test jobs). Additionally, ingress configuration required precise annotations (TLS enforcement, backend protocol, routing paths) to align with cluster ingress controller behavior.\nOperational Friction: Manual configuration of environment-specific parameters introduced complexity and room for error. Standardizing these inputs and integrating them into a controlled deployment pipeline such as Jenkins will improve the deployment process.\nUnexpected Behavior: Kubernetes services only route to pods that pass readiness checks, meaning application-level issues can manifest as networking failures. Ingress resources may appear correctly configured even when backend services are unavailable, requiring inspection of service endpoints and pod health. Additionally, overlapping environments using the same hostname can create routing ambiguity, reinforcing the importance of clear environment isolation.\n\n\n\nRecommendations for Production\n\nAutomation:\n\nImplement a fully automated deployment pipeline (ie Jenkins, Github Actions) with Helm template, Kustomize overlays, to enforce consistent, policy-compliant configurations\nIntegrate centralized secret management (e.g., External Secrets Operator or Vault) to eliminate manual credential handling\nStandardize environment configuration (DB, ingress, TLS) as reusable templates\n\nObservability:\n\nIntegrate monitoring and logging (e.g., Prometheus and Grafana, or cloud-native equivalents such as CloudWatch) to track pod readiness, restart patterns, and decision service latency\nImplement alerting for failed readiness probes, missing service endpoints, and dependency failures (e.g., database connectivity)\nEnhance visibility into ODM application logs to reduce time to diagnose issues across components\n\nScaling:\n\nImplement Horizontal Pod Autoscaler (HPA) for decision runtime components based on CPU utilization and request throughput\nScale Decision Center independently from runtime components, as it serves administrative rather than high-throughput workloads\nPlan for backend database scaling and connection management, as ODM performance is tightly coupled to database responsiveness under load",
+    "crumbs": [
+      "Key Takeaways"
     ]
   },
   {
@@ -140,130 +264,6 @@
     "crumbs": [
       "Solution Overview",
       "Troubleshooting"
-    ]
-  },
-  {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Secure Deployment of IBM ODM on AWS EKS",
-    "section": "",
-    "text": "MD",
-    "crumbs": [
-      "Problem Definition"
-    ]
-  },
-  {
-    "objectID": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
-    "href": "index.html#description-secure-deployment-of-ibm-odm-on-aws-eks",
-    "title": "Secure Deployment of IBM ODM on AWS EKS",
-    "section": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
-    "text": "Description: “Secure Deployment of IBM ODM on AWS EKS”",
-    "crumbs": [
-      "Problem Definition"
-    ]
-  },
-  {
-    "objectID": "index.html#the-why",
-    "href": "index.html#the-why",
-    "title": "Secure Deployment of IBM ODM on AWS EKS",
-    "section": "The Why",
-    "text": "The Why\nThe client is executing a strategic initiative to modernize their business rule management systems, transitioning critical decision logic from the mainframe to a cloud-native architecture on AWS EKS. This modernization effort requires the agility of containerization without compromising the rigorous security standards inherent to the financial services sector.\n\nBalancing Agility and Security: The primary challenge lies in reconciling the rapid deployment capabilities of IBM ODM with the client’s “Zero Exception” security posture.\nStrict Compliance alignment: Financial services environments often enforce “Restricted” Pod Security Standards that exceed standard Kubernetes defaults. Deploying complex enterprise software into these environments requires bridging the gap between standard deployment manifests and bespoke security constraints.\nOperational Standardization: The client requires a repeatable, automated deployment pipeline that satisfies automated policy gates (OPA Gatekeeper) without requiring manual intervention or policy waivers.\n\n\nProblem Details\nTechnical Hurdles & Policy Integration\nThe objective is to deploy IBM Operational Decision Manager (ODM) v9.5 into an AWS EKS cluster protected by OPA Gatekeeper constraints. While the IBM ODM Helm Chart covers the vast majority of Kubernetes security configurations, this specific environment enforces a distinct set of “Restricted” policies that require granular control over every aspect of the Pod Security Context.\nThe specific integration challenges addressed in this solution include:\n\nGranular Security Context Enforcement: The target environment mandates explicit definitions for runAsGroup and supplementalGroups at the Pod level. The solution requires a method to inject these specific, client-mandated security contexts into the standard deployment manifests during the CI/CD process.\nZero-Trust Persistence Architecture: The standard internal database configuration utilizes specific filesystem groups (fsGroup) for storage permission management. To align with the client’s non-root requirements (UID/GID &gt; 1000), the architecture must be adapted to utilize an External Database (e.g. AWS RDS) rather than containerized persistence.\nSecure Supply Chain: The environment prohibits pulling images from public or vendor registries. The deployment workflow must accommodate an air-gapped supply chain, utilizing an internal artifact repository and referencing all container images strictly by SHA256 digests.\nIngress Hardening: To meet strict traffic control policies, the solution must explicitly disable HTTP pathways and enforce TLS termination and specific ingress host matching at the manifest level.\n\n\n\nAdditional Context\nEnvironment & Constraints\n\nPlatform: AWS Elastic Kubernetes Service (EKS).\nPolicy Engine: Open Policy Agent (OPA) Gatekeeper enforcing the Kubernetes “Restricted” Pod Security Standard.\nConstraint Strictness:\n\nImmutable Policies: The platform team does not allow policy exceptions or namespace-level whitelisting.\nPre-Deployment Validation: Deployment manifests must be fully compliant before applying to the cluster; relying on post-admission mutations is not permitted.\n\nSoftware Version: IBM ODM 9.5.0.1 (Helm Chart 25.1.0).\nNetwork Posture: Strict egress filtering requires explicit allowance for connectivity to external services (RDS) and internal tooling (Artifactory).",
-    "crumbs": [
-      "Problem Definition"
-    ]
-  },
-  {
-    "objectID": "src/key-takeaway.html",
-    "href": "src/key-takeaway.html",
-    "title": "Key Takeaways",
-    "section": "",
-    "text": "Pilot Results\n\nSecurity Validation: OPA Gatekeeper enforcement was successfully validated. Non-compliant resources (missing seccompProfile, improper runAsGroup, missing ALB annotations, incorrect image pull policies) were consistently blocked at admission time. Compliant deployments required patching via Kustomize, confirming that policy enforcement did not impede valid deployments but did require explicit configuration alignment.\nConnectivity: End-to-end connectivity from ingress to ODM services was successfully established. TLS termination and internal routing functioned as expected once services were healthy. The pilot confirmed that ingress configuration (including annotations and TLS settings) can securely expose ODM endpoints while maintaining encrypted communication within the cluster.\n\n\n\nLessons Learned\n\nConfiguration Challenges: The default Helm chart required significant augmentation to meet enterprise policy requirements. Key challenges included enforcing security contexts (runAsGroup, supplementalGroups, seccomp), overriding image pull policies for init containers, and patching components not fully configurable via values.yaml (e.g., test jobs). Additionally, ingress configuration required precise annotations (TLS enforcement, backend protocol, routing paths) to align with cluster ingress controller behavior.\nOperational Friction: Manual configuration of environment-specific parameters introduced complexity and room for error. Standardizing these inputs and integrating them into a controlled deployment pipeline such as Jenkins will improve the deployment process.\nUnexpected Behavior: Kubernetes services only route to pods that pass readiness checks, meaning application-level issues can manifest as networking failures. Ingress resources may appear correctly configured even when backend services are unavailable, requiring inspection of service endpoints and pod health. Additionally, overlapping environments using the same hostname can create routing ambiguity, reinforcing the importance of clear environment isolation.\n\n\n\nRecommendations for Production\n\nAutomation:\n\nImplement a fully automated deployment pipeline (ie Jenkins, Github Actions) with Helm template, Kustomize overlays, to enforce consistent, policy-compliant configurations\nIntegrate centralized secret management (e.g., External Secrets Operator or Vault) to eliminate manual credential handling\nStandardize environment configuration (DB, ingress, TLS) as reusable templates\n\nObservability:\n\nIntegrate monitoring and logging (e.g., Prometheus and Grafana, or cloud-native equivalents such as CloudWatch) to track pod readiness, restart patterns, and decision service latency\nImplement alerting for failed readiness probes, missing service endpoints, and dependency failures (e.g., database connectivity)\nEnhance visibility into ODM application logs to reduce time to diagnose issues across components\n\nScaling:\n\nImplement Horizontal Pod Autoscaler (HPA) for decision runtime components based on CPU utilization and request throughput\nScale Decision Center independently from runtime components, as it serves administrative rather than high-throughput workloads\nPlan for backend database scaling and connection management, as ODM performance is tightly coupled to database responsiveness under load",
-    "crumbs": [
-      "Key Takeaways"
-    ]
-  },
-  {
-    "objectID": "src/solution_overview/environment.html",
-    "href": "src/solution_overview/environment.html",
-    "title": "Environment Architecture",
-    "section": "",
-    "text": "This section details the reference architecture for the IBM ODM v9.5 deployment. The environment is designed to operate within a “Restricted” Kubernetes security context, utilizing externalized persistence and strict traffic controls to satisfy organizational compliance standards.",
-    "crumbs": [
-      "Solution Overview",
-      "Environment"
-    ]
-  },
-  {
-    "objectID": "src/solution_overview/environment.html#logical-topology",
-    "href": "src/solution_overview/environment.html#logical-topology",
-    "title": "Environment Architecture",
-    "section": "Logical Topology",
-    "text": "Logical Topology\nThe deployment architecture isolates the ODM application logic from the persistence layer, ensuring that all compute resources within the Kubernetes cluster remain stateless and ephemeral. The solution utilizes a single-namespace model where application pods connect securely to externalized infrastructure services.\n\nCompute: Stateless Pods running on AWS EKS Worker Nodes.\nPersistence: External Oracle for transactional data.\nArtifacts: Internal Trusted Registry (Artifactory) for container images.\nRouting: Ingress Controller handling TLS termination and routing to internal ClusterIP services.\n\n\n\n\n\n\ngraph LR\n    %% ---------------------------------------------------------\n    %% STYLING DEFINITIONS\n    %% ---------------------------------------------------------\n    classDef darkBlue fill:#002C6D,stroke:#333,stroke-width:2px,color:white;\n    classDef lightBlue fill:#6BA2C1,stroke:#333,stroke-width:2px,color:white;\n    classDef green fill:#368727,stroke:#333,stroke-width:2px,color:white;\n    classDef white fill:#ffffff,stroke:#333,stroke-width:1px,color:black;\n    %% Invisible style for spacing wrappers\n    classDef invisible fill:none,stroke:none,color:none;\n\n    %% ---------------------------------------------------------\n    %% NODE DEFINITIONS\n    %% ---------------------------------------------------------\n    subgraph CN [\"Corporate Network\"]\n        User((\"User\"))\n        Admin((\"Admin\"))\n    end\n\n    subgraph AWS_CLOUD [\"AWS Cloud Environment\"]\n        %% SPACER 1: Pushes content away from 'AWS Cloud Environment' title\n        subgraph CLOUD_SPACER [\" \"]\n            direction LR\n            \n            ALB[\"AWS ALB&lt;br/&gt;(Terminates & Re-encrypts)\"]\n\n            subgraph EKS [\"AWS EKS Cluster\"]\n                %% SPACER 2: Pushes content away from 'AWS EKS Cluster' title\n                subgraph EKS_SPACER [\" \"]\n                    direction LR\n                    \n                    subgraph NS [\"Namespace: odm-pilot\"]\n                        %% SPACER 3: Pushes content away from 'Namespace' title\n                        subgraph NS_SPACER [\" \"]\n                            \n                            subgraph ODM [\"ODM Workload (UID 1001)\"]\n                                DC[\"Decision Center\"]\n                                DR[\"Decision Runner\"]\n                                DSC[\"DS Console\"]\n                                DSR[\"DS Runtime\"]\n                            end\n                        end\n                    end\n                end\n            end\n\n            Database[(\"Oracle\")]\n        end\n    end\n\n    subgraph EXT [\"External Infrastructure\"]\n        Registry[(\"Internal Artifactory\")]\n    end\n\n    %% ---------------------------------------------------------\n    %% CONNECTIONS\n    %% ---------------------------------------------------------\n    \n    %% Inbound HTTPS\n    User --&gt;|\"HTTPS\"| ALB\n    Admin --&gt;|\"HTTPS\"| ALB\n    \n    %% Internal Re-encrypted HTTPS\n    ALB --&gt;|\"HTTPS\"| DC\n    ALB --&gt;|\"HTTPS\"| DR\n    ALB --&gt;|\"HTTPS\"| DSC\n    ALB --&gt;|\"HTTPS\"| DSR\n\n    %% Database Connectivity\n    DC --&gt;|\"JDBC/TCP 1521\"| Database\n    DR --&gt;|\"JDBC/TCP 1521\"| Database\n    DSC --&gt;|\"JDBC/TCP 1521\"| Database\n    DSR --&gt;|\"JDBC/TCP 1521\"| Database\n\n    %% Image Pulls\n    DC -.-&gt;|\"Image Pull\"| Registry\n    DR -.-&gt;|\"Image Pull\"| Registry\n    DSC -.-&gt;|\"Image Pull\"| Registry\n    DSR -.-&gt;|\"Image Pull\"| Registry\n\n    %% ---------------------------------------------------------\n    %% APPLY STYLES\n    %% ---------------------------------------------------------\n    class User,Admin darkBlue;\n    class DC,DR,DSC,DSR lightBlue;\n    class Database,ALB green;\n    class Registry white;\n    \n    %% Apply invisible style to all spacer subgraphs\n    class CLOUD_SPACER,EKS_SPACER,NS_SPACER invisible;",
-    "crumbs": [
-      "Solution Overview",
-      "Environment"
-    ]
-  },
-  {
-    "objectID": "src/solution_overview/environment.html#component-matrix",
-    "href": "src/solution_overview/environment.html#component-matrix",
-    "title": "Environment Architecture",
-    "section": "Component Matrix",
-    "text": "Component Matrix\nThe solution validates the integration of the following specific software versions.\n\n\n\n\n\n\n\n\nComponent\nVersion\nRole\n\n\n\n\nPlatform\nAWS EKS (K8s 1.24+)\nContainer Orchestration Platform\n\n\nSoftware\nIBM ODM 9.5.0.1\nBusiness Rule Management System\n\n\nHelm Chart\nibm-odm-prod 25.1.0\nDeployment Manager\n\n\nDatabase\nOracle 19c or 23ai\nExternal Persistence Layer (AWS RDS or EC2)\n\n\nPolicy Engine\nOPA Gatekeeper\nSecurity Governance & Admission Control\n\n\nIngress\nNGINX / AWS ALB\nTraffic Routing & TLS Termination",
-    "crumbs": [
-      "Solution Overview",
-      "Environment"
-    ]
-  },
-  {
-    "objectID": "src/solution_overview/environment.html#security-context-specification",
-    "href": "src/solution_overview/environment.html#security-context-specification",
-    "title": "Environment Architecture",
-    "section": "Security Context Specification",
-    "text": "Security Context Specification\nTo comply with the Restricted Pod Security Standards enforced by OPA Gatekeeper, the ODM application containers are configured with a strict security profile. This profile overrides standard defaults to ensure “Zero Privilege” execution.\n\nPod Security Settings\nThe deployment pipeline explicitly injects the following contexts into all workload resources:\n\nUser ID (UID): 1001 (Non-Root)\nGroup ID (GID): 1001 (Non-Root)\nFilesystem: Read-Only Root Filesystem (with specific volume mounts for temp directories)\nPrivilege Escalation: AllowPrivilegeEscalation: false\nCapabilities: DROP ALL\nSeccomp Profile: RuntimeDefault\n\n\n\n\n\n\n\nNote\n\n\n\nService Account Token: To minimize the attack surface, automountServiceAccountToken is disabled on application pods. This configuration is validated for core ODM functionality, though it restricts the usage of the standard IBM License Metering agent sidecar.",
-    "crumbs": [
-      "Solution Overview",
-      "Environment"
-    ]
-  },
-  {
-    "objectID": "src/solution_overview/environment.html#network-connectivity",
-    "href": "src/solution_overview/environment.html#network-connectivity",
-    "title": "Environment Architecture",
-    "section": "Network & Connectivity",
-    "text": "Network & Connectivity\nThe environment assumes a “Deny by Default” network posture.\n\nIngress (Inbound)\n\nProtocol: HTTPS Only (HTTP traffic is strictly disabled at the Ingress level).\nTermination: TLS is terminated at the Ingress Controller using a Kubernetes Secret.\nRouting: Traffic is routed to internal ClusterIP services. No NodePorts or LoadBalancers are created directly by the application.\n\n\n\nEgress (Outbound)\nThe ODM Pods require outbound network access to the following destinations:\n\nDatabase: TCP access to the AWS RDS endpoint (typically port 5432).\nImage Registry: HTTPS access to the internal Artifactory for image pulling.\nInternal DNS: UDP/TCP access to the cluster CoreDNS service.",
-    "crumbs": [
-      "Solution Overview",
-      "Environment"
-    ]
-  },
-  {
-    "objectID": "src/landing_page/landing_page.html",
-    "href": "src/landing_page/landing_page.html",
-    "title": "Project Name",
-    "section": "",
-    "text": "Project Name\nSubtitle\n\n\nOur Documentation \n\n\n\n\n\nNext Steps\n\n\n\nL ink 1\n\n\n\nLink 2"
-  },
-  {
-    "objectID": "src/implementation_methodology/stepthree-imp.html",
-    "href": "src/implementation_methodology/stepthree-imp.html",
-    "title": "Sample Application Setup",
-    "section": "",
-    "text": "Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.\n\n\nDownload the Miniloan Service.zip and execution-payload.json from the following repo.\n\n\n\n\nOpen the Decision Center Business console as admin user\nClick the Import Decision Service button .\nClick Choose to browse and then select the Miniloan Service.zip file you previously downloaded (MiniLoan Service.zip).\nMake sure Use Decision Governance Framework is not selected. For this test we will work with an ungoverned branch of the decision service.\nClick Import. The Miniloan Service decision service automatically opens. You see the Releases and Branches tabs. Because you chose not to use the decision governance framework, you can see that the Releases tab is empty.\nOpen the Branches tab, and then click the main branch. A decision service can contain many projects. For simplicity, all the rules of Miniloan Service are contained in its top-level project, which has the same name as the decision service.\nClick All types in the Types window to display all the artifacts. In the Decision Artifacts tab, you can see a folder for the decision operations, the miniloan ruleflow, and folders that contain the rules:\n\n\n\n\nImage shows the Decision Artifacts tab\n\n\n\n\n\n\nClick the Deployments tab to see its contents.\nClick the Miniloan deployment configuration.\nClick the Edit button in the upper right corner of the window.\nClick the Targets tab.\nCheck that Decision Service Execution is selected and click the Save button.\nType “Miniloan policy”, and click Create new version.\nClick the Deploy button  in the upper right corner of the window. A dialog box opens with a summary of the deployment configuration. It gives you the option of deploying to a server or creating a RuleApp archive.\nLeave Server selected in the dialog, and click Deploy.\nClick OK in the deployment status message. The Reports subtab opens in the Deployments tab.\nClick the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.\n\n\n\n\nGo to bash https://&lt;your-host&gt;/res\nOption A: RES Test UI\n\nClick the Explorer tab.\nExpand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.\nClick /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.\nClick Test ruleset\nSwitch execution request to JSON and paste the payload from execution-payload.json\n{\"loan\": {\n    \"amount\": 500000,\n    \"duration\": 240,\n    \"yearlyInterestRate\": 0.05\n },\n  \"__DecisionID__\": \"Test\",\n  \"borrower\": {\n    \"name\": \"Joe\",\n    \"creditScore\": 600,\n    \"yearlyIncome\": 80000\n  }}\n\n\n\nClick Execute Request\n\nOption B: API Call\nYou can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL\ncurl -k https://&lt;your-host&gt;/DecisionService \\\n  -H \"Content-Type: application/json\" \\\n  -d @execution-payload.json\nor\ncurl -k -X POST -H \"Content-Type: application/json\" \\\n     -u &lt;adminUser&gt;:&lt;adminPwd&gt; -d \"@execution-payload.json\" \\\n     https://&lt;yourHost&gt;/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/\nExpect a result like\n{\"__DecisionID__\":\"Test\",\"loan\":{\"amount\":500000,\"duration\":240,\"yearlyInterestRate\":0.05,\"yearlyRepayment\":39597,\"approved\":false,\"messages\":[\"Too big Debt-To-Income ratio\"]}}",
-    "crumbs": [
-      "Implementation Methodology",
-      "Sample Application Setup"
-    ]
-  },
-  {
-    "objectID": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
-    "href": "src/implementation_methodology/stepthree-imp.html#phase-3-miniloan-sample-application-rules",
-    "title": "Sample Application Setup",
-    "section": "",
-    "text": "Now that ODM is deployed, we will implement a decision service that externalizes loan approval logic, allowing rules to be updated without redeploying application code. For this example, a sample app called mini loan will be used to demonstrate the process.\n\n\nDownload the Miniloan Service.zip and execution-payload.json from the following repo.\n\n\n\n\nOpen the Decision Center Business console as admin user\nClick the Import Decision Service button .\nClick Choose to browse and then select the Miniloan Service.zip file you previously downloaded (MiniLoan Service.zip).\nMake sure Use Decision Governance Framework is not selected. For this test we will work with an ungoverned branch of the decision service.\nClick Import. The Miniloan Service decision service automatically opens. You see the Releases and Branches tabs. Because you chose not to use the decision governance framework, you can see that the Releases tab is empty.\nOpen the Branches tab, and then click the main branch. A decision service can contain many projects. For simplicity, all the rules of Miniloan Service are contained in its top-level project, which has the same name as the decision service.\nClick All types in the Types window to display all the artifacts. In the Decision Artifacts tab, you can see a folder for the decision operations, the miniloan ruleflow, and folders that contain the rules:\n\n\n\n\nImage shows the Decision Artifacts tab\n\n\n\n\n\n\nClick the Deployments tab to see its contents.\nClick the Miniloan deployment configuration.\nClick the Edit button in the upper right corner of the window.\nClick the Targets tab.\nCheck that Decision Service Execution is selected and click the Save button.\nType “Miniloan policy”, and click Create new version.\nClick the Deploy button  in the upper right corner of the window. A dialog box opens with a summary of the deployment configuration. It gives you the option of deploying to a server or creating a RuleApp archive.\nLeave Server selected in the dialog, and click Deploy.\nClick OK in the deployment status message. The Reports subtab opens in the Deployments tab.\nClick the name of the report when its status shows a check mark. The report opens and shows a summary of the deployment. It includes the target server, the configuration name, the ruleset, the deployment time, the version of the ruleset, and the deployment snapshot.\n\n\n\n\nGo to bash https://&lt;your-host&gt;/res\nOption A: RES Test UI\n\nClick the Explorer tab.\nExpand RuleApps at the left-hand sidebar, and then expand /mydeployment/1.0.\nClick /Miniloan_ServiceRuleset/1.0 to view the details of the ruleset in the Ruleset View.\nClick Test ruleset\nSwitch execution request to JSON and paste the payload from execution-payload.json\n{\"loan\": {\n    \"amount\": 500000,\n    \"duration\": 240,\n    \"yearlyInterestRate\": 0.05\n },\n  \"__DecisionID__\": \"Test\",\n  \"borrower\": {\n    \"name\": \"Joe\",\n    \"creditScore\": 600,\n    \"yearlyIncome\": 80000\n  }}\n\n\n\nClick Execute Request\n\nOption B: API Call\nYou can also test the execution of the Miniloan_ServiceRuleset ruleset in a command terminal by using cURL\ncurl -k https://&lt;your-host&gt;/DecisionService \\\n  -H \"Content-Type: application/json\" \\\n  -d @execution-payload.json\nor\ncurl -k -X POST -H \"Content-Type: application/json\" \\\n     -u &lt;adminUser&gt;:&lt;adminPwd&gt; -d \"@execution-payload.json\" \\\n     https://&lt;yourHost&gt;/DecisionService/rest/v1/mydeployment/1.0/Miniloan_ServiceRuleset/1.0/\nExpect a result like\n{\"__DecisionID__\":\"Test\",\"loan\":{\"amount\":500000,\"duration\":240,\"yearlyInterestRate\":0.05,\"yearlyRepayment\":39597,\"approved\":false,\"messages\":[\"Too big Debt-To-Income ratio\"]}}",
-    "crumbs": [
-      "Implementation Methodology",
-      "Sample Application Setup"
     ]
   }
 ]
