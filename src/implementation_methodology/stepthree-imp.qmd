@@ -109,3 +109,6 @@ Expect a result like
 ``` json
 {"__DecisionID__":"Test","loan":{"amount":500000,"duration":240,"yearlyInterestRate":0.05,"yearlyRepayment":39597,"approved":false,"messages":["Too big Debt-To-Income ratio"]}}
 ```
+
+Jar File for testing
+[Download the Jar](jrules-engine.jar){download="jrules-engine.jar"}
